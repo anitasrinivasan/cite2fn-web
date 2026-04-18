@@ -13,3 +13,9 @@ node_modules/
 
 data/
 core/.venv/
+
+# web
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts

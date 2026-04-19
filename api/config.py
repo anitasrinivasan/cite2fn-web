@@ -34,6 +34,11 @@ class Settings:
     """Bearer-style token for accessing the admin dashboard. If unset, the
     admin route returns 404 to hide its existence."""
 
+    test_mode: bool
+    """When true, every job and feedback record created through this server
+    is marked is_test=1. Set via CITE2FN_TEST_MODE=1 on the dev server so
+    local clicks don't pollute production metrics."""
+
     cors_origins: list[str]
     """Origins allowed to call the API. '*' in dev; the deployed web origin in prod."""
 
@@ -54,6 +59,7 @@ class Settings:
         self.claude_model = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5")
         self.claude_sonnet_model = os.environ.get("CLAUDE_SONNET_MODEL", "claude-sonnet-4-6")
         self.admin_token = os.environ.get("ADMIN_TOKEN")
+        self.test_mode = os.environ.get("CITE2FN_TEST_MODE", "0").lower() in ("1", "true", "yes")
 
         origins = os.environ.get("CORS_ORIGINS", "*")
         self.cors_origins = [o.strip() for o in origins.split(",") if o.strip()]

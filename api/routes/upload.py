@@ -5,16 +5,18 @@ from __future__ import annotations
 import asyncio
 import shutil
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
 from api import jobs, pipeline
 from api.config import settings
+from api.routes._testmode import request_is_test
 
 router = APIRouter()
 
 
 @router.post("/jobs")
 async def create_job(
+    request: Request,
     file: UploadFile = File(...),
     style: str = Form(...),
     output_format: str = Form(...),
@@ -46,6 +48,8 @@ async def create_job(
             "Free Groq fallback is not configured on this server. Provide a Claude API key instead.",
         )
 
+    is_test = request_is_test(request)
+
     # --- Persist the upload ---
     job = jobs.create_job(
         style=style,  # type: ignore[arg-type]
@@ -53,10 +57,12 @@ async def create_job(
         keep_references=keep_references,
         llm_backend=llm_backend,  # type: ignore[arg-type]
         claude_model_tier=claude_model_tier,  # type: ignore[arg-type]
+        is_test=is_test,
     )
     jobs.record_event(
         "job_created",
         job_id=job.id,
+        is_test=is_test,
         style=style,
         output_format=output_format,
         keep_references=keep_references,

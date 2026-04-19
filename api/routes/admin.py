@@ -37,7 +37,19 @@ def _connect() -> sqlite3.Connection:
 
 
 @router.get("/admin/stats")
-def admin_stats(token: str | None = Query(default=None)) -> dict:
+def admin_stats(
+    token: str | None = Query(default=None),
+    include_test: bool = Query(default=False),
+) -> dict:
+    """Admin stats blob.
+
+    By default (`include_test=False`) we exclude rows marked is_test=1 from
+    every count and aggregate — these are runs made by the developer /
+    operator (CITE2FN_TEST_MODE on the dev server, or the X-Cite2fn-Test
+    request header). Toggle with `?include_test=1` to see the full picture.
+    Also returns separate `test_only` counts so the dashboard can show a
+    little "x tests on record" note.
+    """
     _require_token(token)
 
     now = int(time.time())
@@ -45,26 +57,59 @@ def admin_stats(token: str | None = Query(default=None)) -> dict:
     day_7 = now - 7 * one_day
     day_30 = now - 30 * one_day
 
+    # When include_test=False, every job/event/feedback query filters
+    # `is_test = 0`. We bake that filter into WHERE fragments so the branching
+    # lives in one place.
+    job_filter = "" if include_test else " AND jobs.is_test = 0"
+    job_where_start = "WHERE 1=1" + job_filter
+    event_filter = "" if include_test else " AND events.is_test = 0"
+    event_where_start = "WHERE 1=1" + event_filter
+    feedback_filter = "" if include_test else " AND feedback.is_test = 0"
+    feedback_where_start = "WHERE 1=1" + feedback_filter
+
     with _connect() as conn:
+        # --- Sidebar: how many test rows exist (always returned so the
+        # dashboard can show "X test rows hidden" regardless of toggle).
+        test_counts = {
+            "jobs": conn.execute(
+                "SELECT COUNT(*) AS n FROM jobs WHERE is_test = 1"
+            ).fetchone()["n"],
+            "events": conn.execute(
+                "SELECT COUNT(*) AS n FROM events WHERE is_test = 1"
+            ).fetchone()["n"],
+            "feedback": conn.execute(
+                "SELECT COUNT(*) AS n FROM feedback WHERE is_test = 1"
+            ).fetchone()["n"],
+        }
+
         # Overall job counts
-        jobs_total = conn.execute("SELECT COUNT(*) AS n FROM jobs").fetchone()["n"]
+        jobs_total = conn.execute(
+            f"SELECT COUNT(*) AS n FROM jobs {job_where_start}"
+        ).fetchone()["n"]
         jobs_7d = conn.execute(
-            "SELECT COUNT(*) AS n FROM jobs WHERE created_at >= ?", (day_7,)
+            f"SELECT COUNT(*) AS n FROM jobs {job_where_start} AND created_at >= ?",
+            (day_7,),
         ).fetchone()["n"]
         jobs_30d = conn.execute(
-            "SELECT COUNT(*) AS n FROM jobs WHERE created_at >= ?", (day_30,)
+            f"SELECT COUNT(*) AS n FROM jobs {job_where_start} AND created_at >= ?",
+            (day_30,),
         ).fetchone()["n"]
 
-        # Funnel counts based on status + review event presence.
         status_rows = conn.execute(
-            "SELECT status, COUNT(*) AS n FROM jobs GROUP BY status"
+            f"SELECT status, COUNT(*) AS n FROM jobs {job_where_start} GROUP BY status"
         ).fetchall()
         status_counts = {r["status"]: r["n"] for r in status_rows}
         reached_review = conn.execute(
-            "SELECT COUNT(DISTINCT job_id) AS n FROM events WHERE event_type = 'review_submitted'"
+            f"""
+            SELECT COUNT(DISTINCT job_id) AS n FROM events
+            {event_where_start} AND event_type = 'review_submitted'
+            """
         ).fetchone()["n"]
         downloaded = conn.execute(
-            "SELECT COUNT(DISTINCT job_id) AS n FROM events WHERE event_type = 'download_fetched'"
+            f"""
+            SELECT COUNT(DISTINCT job_id) AS n FROM events
+            {event_where_start} AND event_type = 'download_fetched'
+            """
         ).fetchone()["n"]
 
         funnel = {
@@ -75,10 +120,9 @@ def admin_stats(token: str | None = Query(default=None)) -> dict:
             "errored": status_counts.get("error", 0),
         }
 
-        # Preference breakdowns
         def _breakdown(column: str) -> dict[str, int]:
             rows = conn.execute(
-                f"SELECT {column} AS v, COUNT(*) AS n FROM jobs GROUP BY {column}"
+                f"SELECT {column} AS v, COUNT(*) AS n FROM jobs {job_where_start} GROUP BY {column}"
             ).fetchall()
             return {r["v"]: r["n"] for r in rows}
 
@@ -86,15 +130,13 @@ def admin_stats(token: str | None = Query(default=None)) -> dict:
         output_format_breakdown = _breakdown("output_format")
         llm_backend_breakdown = _breakdown("llm_backend")
 
-        # Claude model tier: count haiku vs. sonnet-requested, and also how
-        # many sonnet jobs fell back to haiku.
         claude_rows = conn.execute(
-            """
+            f"""
             SELECT claude_model_tier AS tier,
                    SUM(sonnet_fell_back) AS fell_back,
                    COUNT(*) AS n
             FROM jobs
-            WHERE llm_backend = 'claude'
+            {job_where_start} AND llm_backend = 'claude'
             GROUP BY claude_model_tier
             """
         ).fetchall()
@@ -106,15 +148,14 @@ def admin_stats(token: str | None = Query(default=None)) -> dict:
             for r in claude_rows
         }
 
-        # Citation averages (from citations_converted events).
         avg_row = conn.execute(
-            """
+            f"""
             SELECT
                 AVG(CAST(json_extract(metadata, '$.count_total') AS REAL)) AS avg_total,
                 AVG(CAST(json_extract(metadata, '$.count_confident') AS REAL)) AS avg_confident,
                 AVG(CAST(json_extract(metadata, '$.count_needs_review') AS REAL)) AS avg_needs_review
             FROM events
-            WHERE event_type = 'citations_converted'
+            {event_where_start} AND event_type = 'citations_converted'
             """
         ).fetchone()
         citation_averages = {
@@ -123,12 +164,11 @@ def admin_stats(token: str | None = Query(default=None)) -> dict:
             "avg_needs_review": _round(avg_row["avg_needs_review"]),
         }
 
-        # Top error types in the last 30 days.
         error_rows = conn.execute(
-            """
+            f"""
             SELECT json_extract(metadata, '$.error_type') AS error_type, COUNT(*) AS n
             FROM events
-            WHERE event_type = 'job_errored' AND created_at >= ?
+            {event_where_start} AND event_type = 'job_errored' AND created_at >= ?
             GROUP BY error_type
             ORDER BY n DESC
             LIMIT 5
@@ -140,12 +180,11 @@ def admin_stats(token: str | None = Query(default=None)) -> dict:
             for r in error_rows
         ]
 
-        # Daily job counts, last 30 days, filled with zeros for missing days.
         daily_rows = conn.execute(
-            """
+            f"""
             SELECT date(created_at, 'unixepoch') AS d, COUNT(*) AS n
             FROM jobs
-            WHERE created_at >= ?
+            {job_where_start} AND created_at >= ?
             GROUP BY d
             ORDER BY d ASC
             """,
@@ -158,11 +197,11 @@ def admin_stats(token: str | None = Query(default=None)) -> dict:
             day_str = time.strftime("%Y-%m-%d", time.gmtime(ts))
             daily_jobs.append({"date": day_str, "count": daily_map.get(day_str, 0)})
 
-        # Recent feedback (most recent 20)
         feedback_rows = conn.execute(
-            """
-            SELECT id, title, description, email, job_id, user_agent, created_at
+            f"""
+            SELECT id, title, description, email, job_id, user_agent, is_test, created_at
             FROM feedback
+            {feedback_where_start}
             ORDER BY created_at DESC
             LIMIT 20
             """
@@ -175,6 +214,7 @@ def admin_stats(token: str | None = Query(default=None)) -> dict:
                 "email": r["email"],
                 "job_id": r["job_id"],
                 "user_agent": r["user_agent"],
+                "is_test": bool(r["is_test"]),
                 "created_at": r["created_at"],
             }
             for r in feedback_rows
@@ -182,6 +222,8 @@ def admin_stats(token: str | None = Query(default=None)) -> dict:
 
     return {
         "now": now,
+        "include_test": include_test,
+        "test_counts": test_counts,
         "jobs_total": jobs_total,
         "jobs_last_7d": jobs_7d,
         "jobs_last_30d": jobs_30d,

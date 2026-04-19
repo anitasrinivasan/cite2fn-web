@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from api import jobs
+from api.routes._testmode import request_is_test
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ def submit_feedback(payload: FeedbackPayload, request: Request) -> dict:
         email = None
 
     user_agent = request.headers.get("user-agent")
+    is_test = request_is_test(request)
 
     feedback_id = jobs.insert_feedback(
         title=title,
@@ -36,11 +38,13 @@ def submit_feedback(payload: FeedbackPayload, request: Request) -> dict:
         email=email,
         job_id=payload.job_id,
         user_agent=user_agent,
+        is_test=is_test,
     )
 
     jobs.record_event(
         "feedback_submitted",
         job_id=payload.job_id,
+        is_test=is_test,
         has_email=bool(email),
     )
 

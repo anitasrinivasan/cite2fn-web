@@ -128,6 +128,66 @@ def test_admin_stats_reflects_feedback(client):
     assert fb[0]["title"] == "t"
 
 
+def test_feedback_marked_test_when_header_set(client):
+    """With the X-Cite2fn-Test header, feedback is persisted but hidden from
+    default admin stats."""
+    client.post(
+        "/api/feedback",
+        json={"title": "real", "description": "real bug"},
+    )
+    client.post(
+        "/api/feedback",
+        json={"title": "devtest", "description": "my own click"},
+        headers={"X-Cite2fn-Test": "1"},
+    )
+
+    # Default: only real feedback is visible
+    res = client.get("/api/admin/stats?token=test-admin-token")
+    body = res.json()
+    assert len(body["recent_feedback"]) == 1
+    assert body["recent_feedback"][0]["title"] == "real"
+    assert body["test_counts"]["feedback"] == 1
+
+    # With include_test=1, both appear
+    res2 = client.get("/api/admin/stats?token=test-admin-token&include_test=1")
+    body2 = res2.json()
+    assert len(body2["recent_feedback"]) == 2
+    assert body2["include_test"] is True
+
+
+def test_test_mode_env_marks_everything(monkeypatch):
+    """With CITE2FN_TEST_MODE=1 the whole server treats all rows as tests."""
+    import importlib
+    import tempfile
+
+    tmp = tempfile.mkdtemp()
+    monkeypatch.setenv("STORAGE_DIR", tmp)
+    monkeypatch.setenv("GROQ_API_KEY", "k")
+    monkeypatch.setenv("ADMIN_TOKEN", "t")
+    monkeypatch.setenv("CITE2FN_TEST_MODE", "1")
+
+    from api import config
+
+    importlib.reload(config)
+    from api import jobs, main
+
+    importlib.reload(jobs)
+    importlib.reload(main)
+
+    from fastapi.testclient import TestClient
+
+    with TestClient(main.app) as c:
+        c.post(
+            "/api/feedback",
+            json={"title": "x", "description": "y"},
+        )
+        res = c.get("/api/admin/stats?token=t")
+        body = res.json()
+        # Real (is_test=0) view should be empty — everything was test
+        assert len(body["recent_feedback"]) == 0
+        assert body["test_counts"]["feedback"] == 1
+
+
 def test_admin_hidden_when_no_token_configured(monkeypatch):
     # With no ADMIN_TOKEN env var, the endpoint should return 404 to hide
     # its existence entirely.

@@ -11,6 +11,8 @@ const API_BASE =
 
 type Stats = {
   now: number;
+  include_test: boolean;
+  test_counts: { jobs: number; events: number; feedback: number };
   jobs_total: number;
   jobs_last_7d: number;
   jobs_last_30d: number;
@@ -42,16 +44,20 @@ type Stats = {
     email: string | null;
     job_id: string | null;
     user_agent: string | null;
+    is_test: boolean;
     created_at: number;
   }[];
 };
 
-async function fetchStats(token: string): Promise<Stats | { error: string; status: number }> {
+async function fetchStats(
+  token: string,
+  includeTest: boolean,
+): Promise<Stats | { error: string; status: number }> {
   try {
-    const res = await fetch(
-      `${API_BASE}/api/admin/stats?token=${encodeURIComponent(token)}`,
-      { cache: "no-store" },
-    );
+    const url = new URL(`${API_BASE}/api/admin/stats`);
+    url.searchParams.set("token", token);
+    if (includeTest) url.searchParams.set("include_test", "1");
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       return { error: await safeText(res), status: res.status };
     }
@@ -74,9 +80,10 @@ async function safeText(res: Response): Promise<string> {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; include_test?: string }>;
 }) {
-  const { token } = await searchParams;
+  const { token, include_test } = await searchParams;
+  const includeTest = include_test === "1" || include_test === "true";
 
   if (!token) {
     return (
@@ -89,7 +96,7 @@ export default async function AdminPage({
     );
   }
 
-  const result = await fetchStats(token);
+  const result = await fetchStats(token, includeTest);
   if ("error" in result) {
     return (
       <ContentLayout title="Admin">
@@ -106,10 +113,55 @@ export default async function AdminPage({
 
   const stats = result;
   const maxDaily = Math.max(1, ...stats.daily_jobs.map((d) => d.count));
+  const toggleHref = (() => {
+    const p = new URLSearchParams();
+    p.set("token", token);
+    if (!stats.include_test) p.set("include_test", "1");
+    return `/admin?${p.toString()}`;
+  })();
+
+  const totalTestRows =
+    stats.test_counts.jobs + stats.test_counts.events + stats.test_counts.feedback;
 
   return (
     <ContentLayout title="Admin · Stats">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm">
+        <div className="text-slate-700">
+          {stats.include_test ? (
+            <>
+              <span className="font-medium text-amber-800">
+                Showing real + test data.
+              </span>{" "}
+              Test-marked rows are included in every chart below.
+            </>
+          ) : (
+            <>
+              Showing <span className="font-medium">real user data only</span>.
+              {totalTestRows > 0 && (
+                <>
+                  {" "}
+                  <span className="text-slate-500">
+                    ({stats.test_counts.jobs} test job
+                    {stats.test_counts.jobs === 1 ? "" : "s"}
+                    {stats.test_counts.feedback > 0 && (
+                      <>, {stats.test_counts.feedback} test feedback</>
+                    )}{" "}
+                    hidden)
+                  </span>
+                </>
+              )}
+            </>
+          )}
+        </div>
+        <a
+          href={toggleHref}
+          className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+        >
+          {stats.include_test ? "Hide test data" : "Include test data"}
+        </a>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Jobs (all time)" value={stats.jobs_total} />
         <StatCard label="Jobs (last 7d)" value={stats.jobs_last_7d} />
         <StatCard label="Jobs (last 30d)" value={stats.jobs_last_30d} />

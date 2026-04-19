@@ -55,6 +55,10 @@ class Job:
     # this job (free-tier Claude accounts don't serve Sonnet). Surfaced in
     # the review UI so users know what they got.
     sonnet_fell_back: bool = False
+    # When true, this job was created by a developer/operator (either via
+    # server-wide CITE2FN_TEST_MODE or the X-Cite2fn-Test request header)
+    # and is excluded from the default admin dashboard metrics.
+    is_test: bool = False
 
     @property
     def dir(self) -> Path:
@@ -137,6 +141,7 @@ def init_db() -> None:
         for col, ddl in (
             ("claude_model_tier", "TEXT NOT NULL DEFAULT 'haiku'"),
             ("sonnet_fell_back", "INTEGER NOT NULL DEFAULT 0"),
+            ("is_test", "INTEGER NOT NULL DEFAULT 0"),
         ):
             try:
                 conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {ddl}")
@@ -150,10 +155,16 @@ def init_db() -> None:
                 event_type TEXT NOT NULL,
                 job_id TEXT,
                 metadata TEXT NOT NULL DEFAULT '{}',
+                is_test INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
             )
             """
         )
+        for col, ddl in (("is_test", "INTEGER NOT NULL DEFAULT 0"),):
+            try:
+                conn.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
+            except sqlite3.OperationalError:
+                pass
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at)"
         )
@@ -170,10 +181,16 @@ def init_db() -> None:
                 email TEXT,
                 job_id TEXT,
                 user_agent TEXT,
+                is_test INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
             )
             """
         )
+        for col, ddl in (("is_test", "INTEGER NOT NULL DEFAULT 0"),):
+            try:
+                conn.execute(f"ALTER TABLE feedback ADD COLUMN {col} {ddl}")
+            except sqlite3.OperationalError:
+                pass
 
 
 def create_job(
@@ -182,6 +199,7 @@ def create_job(
     keep_references: bool,
     llm_backend: LLMBackend,
     claude_model_tier: ClaudeModelTier = "haiku",
+    is_test: bool = False,
 ) -> Job:
     now = int(time.time())
     job = Job(
@@ -192,6 +210,7 @@ def create_job(
         keep_references=keep_references,
         llm_backend=llm_backend,
         claude_model_tier=claude_model_tier,
+        is_test=is_test,
         created_at=now,
         updated_at=now,
     )
@@ -200,9 +219,9 @@ def create_job(
         conn.execute(
             """
             INSERT INTO jobs (id, status, style, output_format, keep_references,
-                              llm_backend, claude_model_tier, phase_progress, error,
-                              created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                              llm_backend, claude_model_tier, is_test,
+                              phase_progress, error, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job.id,
@@ -212,6 +231,7 @@ def create_job(
                 int(job.keep_references),
                 job.llm_backend,
                 job.claude_model_tier,
+                int(job.is_test),
                 json.dumps(job.phase_progress),
                 job.error,
                 job.created_at,
@@ -268,16 +288,14 @@ def update_job(
 
 
 def _row_to_job(row: sqlite3.Row) -> Job:
-    # claude_model_tier and sonnet_fell_back are added via ALTER in init_db
-    # for already-existing databases; default safely if the row predates them.
-    try:
-        claude_model_tier = row["claude_model_tier"] or "haiku"
-    except (IndexError, KeyError):
-        claude_model_tier = "haiku"
-    try:
-        sonnet_fell_back = bool(row["sonnet_fell_back"])
-    except (IndexError, KeyError):
-        sonnet_fell_back = False
+    # These columns were added by ALTER TABLE in init_db for pre-existing
+    # databases; default safely if the row predates them.
+    def _get(col, default):
+        try:
+            return row[col]
+        except (IndexError, KeyError):
+            return default
+
     return Job(
         id=row["id"],
         status=row["status"],
@@ -285,8 +303,9 @@ def _row_to_job(row: sqlite3.Row) -> Job:
         output_format=row["output_format"],
         keep_references=bool(row["keep_references"]),
         llm_backend=row["llm_backend"],
-        claude_model_tier=claude_model_tier,
-        sonnet_fell_back=sonnet_fell_back,
+        claude_model_tier=_get("claude_model_tier", None) or "haiku",
+        sonnet_fell_back=bool(_get("sonnet_fell_back", 0)),
+        is_test=bool(_get("is_test", 0)),
         phase_progress=json.loads(row["phase_progress"] or "{}"),
         error=row["error"],
         created_at=row["created_at"],
@@ -297,6 +316,7 @@ def _row_to_job(row: sqlite3.Row) -> Job:
 def record_event(
     event_type: str,
     job_id: str | None = None,
+    is_test: bool | None = None,
     **metadata: Any,
 ) -> None:
     """Insert a row into the `events` table.
@@ -304,13 +324,22 @@ def record_event(
     No PII — pass only aggregate / operational fields. Events persist
     indefinitely for trend analysis; individual job data is still deleted on
     the job TTL schedule (the events just reference job_id as a string).
+
+    `is_test` controls whether this event is marked as test data. If left
+    None, we look it up from the associated job (if job_id is given and the
+    job exists) so callers don't have to thread the flag through every
+    event emission site.
     """
     now = int(time.time())
     payload = json.dumps(metadata, ensure_ascii=False) if metadata else "{}"
+    if is_test is None and job_id is not None:
+        job = get_job(job_id)
+        is_test = bool(job.is_test) if job is not None else False
+    is_test_int = 1 if is_test else 0
     with _connect() as conn:
         conn.execute(
-            "INSERT INTO events (event_type, job_id, metadata, created_at) VALUES (?, ?, ?, ?)",
-            (event_type, job_id, payload, now),
+            "INSERT INTO events (event_type, job_id, metadata, is_test, created_at) VALUES (?, ?, ?, ?, ?)",
+            (event_type, job_id, payload, is_test_int, now),
         )
 
 
@@ -320,16 +349,17 @@ def insert_feedback(
     email: str | None = None,
     job_id: str | None = None,
     user_agent: str | None = None,
+    is_test: bool = False,
 ) -> int:
     """Insert a bug-report / feedback row. Returns the new row id."""
     now = int(time.time())
     with _connect() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO feedback (title, description, email, job_id, user_agent, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO feedback (title, description, email, job_id, user_agent, is_test, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (title, description, email, job_id, user_agent, now),
+            (title, description, email, job_id, user_agent, int(is_test), now),
         )
         return cursor.lastrowid or 0
 

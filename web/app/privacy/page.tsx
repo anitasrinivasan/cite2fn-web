@@ -119,7 +119,7 @@ export default function Privacy() {
           href="https://www.anitasrinivasan.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="underline-offset-4 hover:text-slate-900 hover:underline"
+          className="underline-offset-4 hover:text-slate-900 hover:underline dark:hover:text-slate-100"
         >
           anitasrinivasan.com
         </a>

@@ -46,13 +46,22 @@ export type FeedbackPayload = {
   description: string;
   email?: string;
   job_id?: string;
+  attachments?: File[];
 };
 
 export async function submitFeedback(payload: FeedbackPayload): Promise<void> {
+  const form = new FormData();
+  form.set("title", payload.title);
+  form.set("description", payload.description);
+  if (payload.email) form.set("email", payload.email);
+  if (payload.job_id) form.set("job_id", payload.job_id);
+  for (const file of payload.attachments ?? []) {
+    form.append("attachments", file);
+  }
+
   const res = await fetch(`${API_BASE}/api/feedback`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: form,
   });
   if (!res.ok) throw new Error(await extractError(res));
 }

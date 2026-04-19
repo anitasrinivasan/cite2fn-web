@@ -46,6 +46,7 @@ type Stats = {
     user_agent: string | null;
     is_test: boolean;
     created_at: number;
+    attachments: { filename: string; mime_type: string; size_bytes: number }[];
   }[];
 };
 
@@ -88,7 +89,7 @@ export default async function AdminPage({
   if (!token) {
     return (
       <ContentLayout title="Admin">
-        <p className="text-slate-600">
+        <p className="text-slate-600 dark:text-slate-400">
           Access token required. Append{" "}
           <code className="font-mono">?token=…</code> to the URL.
         </p>
@@ -100,7 +101,7 @@ export default async function AdminPage({
   if ("error" in result) {
     return (
       <ContentLayout title="Admin">
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
           {result.status === 401
             ? "Invalid token."
             : result.status === 404
@@ -125,11 +126,11 @@ export default async function AdminPage({
 
   return (
     <ContentLayout title="Admin · Stats">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm">
-        <div className="text-slate-700">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="text-slate-700 dark:text-slate-300">
           {stats.include_test ? (
             <>
-              <span className="font-medium text-amber-800">
+              <span className="font-medium text-amber-800 dark:text-amber-400">
                 Showing real + test data.
               </span>{" "}
               Test-marked rows are included in every chart below.
@@ -140,7 +141,7 @@ export default async function AdminPage({
               {totalTestRows > 0 && (
                 <>
                   {" "}
-                  <span className="text-slate-500">
+                  <span className="text-slate-500 dark:text-slate-500">
                     ({stats.test_counts.jobs} test job
                     {stats.test_counts.jobs === 1 ? "" : "s"}
                     {stats.test_counts.feedback > 0 && (
@@ -155,7 +156,7 @@ export default async function AdminPage({
         </div>
         <a
           href={toggleHref}
-          className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           {stats.include_test ? "Hide test data" : "Include test data"}
         </a>
@@ -168,7 +169,7 @@ export default async function AdminPage({
       </div>
 
       <section className="mt-10">
-        <h2 className="mb-3 text-xl font-semibold text-slate-900">Funnel</h2>
+        <h2 className="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">Funnel</h2>
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           <Funnel label="Created" value={stats.funnel.created} />
           <Funnel label="Reached review" value={stats.funnel.reached_review} />
@@ -179,12 +180,12 @@ export default async function AdminPage({
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-3 text-xl font-semibold text-slate-900">
+        <h2 className="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
           Daily jobs (last 30 days)
         </h2>
         <svg
           viewBox={`0 0 ${stats.daily_jobs.length * 10} 60`}
-          className="h-20 w-full"
+          className="h-20 w-full text-slate-900 dark:text-slate-200"
           preserveAspectRatio="none"
           aria-label="Daily job counts bar chart"
         >
@@ -197,7 +198,7 @@ export default async function AdminPage({
                 y={60 - h}
                 width={8}
                 height={h}
-                fill="#0f172a"
+                fill="currentColor"
               >
                 <title>{`${d.date}: ${d.count}`}</title>
               </rect>
@@ -214,7 +215,7 @@ export default async function AdminPage({
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-3 text-xl font-semibold text-slate-900">
+        <h2 className="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
           Citation averages (per doc)
         </h2>
         <dl className="grid grid-cols-3 gap-3">
@@ -234,14 +235,14 @@ export default async function AdminPage({
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-3 text-xl font-semibold text-slate-900">
+        <h2 className="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
           Top errors (last 30d)
         </h2>
         {stats.top_errors.length === 0 ? (
-          <p className="text-sm text-slate-500">No errors recorded.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No errors recorded.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
               <tr>
                 <th className="py-2">Error type</th>
                 <th className="py-2 text-right">Count</th>
@@ -249,9 +250,9 @@ export default async function AdminPage({
             </thead>
             <tbody>
               {stats.top_errors.map((e) => (
-                <tr key={e.error_type} className="border-b border-slate-100">
-                  <td className="py-2 font-mono">{e.error_type}</td>
-                  <td className="py-2 text-right">{e.count}</td>
+                <tr key={e.error_type} className="border-b border-slate-100 dark:border-slate-800">
+                  <td className="py-2 font-mono text-slate-800 dark:text-slate-200">{e.error_type}</td>
+                  <td className="py-2 text-right text-slate-800 dark:text-slate-200">{e.count}</td>
                 </tr>
               ))}
             </tbody>
@@ -260,29 +261,53 @@ export default async function AdminPage({
       </section>
 
       <section className="mt-10">
-        <h2 className="mb-3 text-xl font-semibold text-slate-900">
+        <h2 className="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
           Recent bug reports
         </h2>
         {stats.recent_feedback.length === 0 ? (
-          <p className="text-sm text-slate-500">No feedback yet.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">No feedback yet.</p>
         ) : (
           <ul className="space-y-4">
             {stats.recent_feedback.map((f) => (
               <li
                 key={f.id}
-                className="rounded-md border border-slate-200 bg-white p-4 text-sm"
+                className="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900"
               >
                 <div className="flex items-baseline justify-between gap-4">
-                  <strong className="text-slate-900">{f.title}</strong>
-                  <span className="text-xs text-slate-500">
+                  <strong className="text-slate-900 dark:text-slate-100">{f.title}</strong>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
                     {new Date(f.created_at * 1000).toLocaleString()}
                   </span>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-slate-700">
+                <p className="mt-2 whitespace-pre-wrap text-slate-700 dark:text-slate-300">
                   {f.description}
                 </p>
+                {f.attachments.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {f.attachments.map((a) => {
+                      const url = `${API_BASE}/api/admin/feedback/${f.id}/attachments/${a.filename}?token=${encodeURIComponent(token)}`;
+                      return (
+                        <a
+                          key={a.filename}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`${a.filename} (${Math.round(a.size_bytes / 1024)} KB)`}
+                          className="block h-20 w-20 overflow-hidden rounded-md border border-slate-200 bg-slate-50 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-500"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={a.filename}
+                            className="h-full w-full object-cover"
+                          />
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
                 {(f.email || f.job_id) && (
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                     {f.email && (
                       <span>
                         reply: <code className="font-mono">{f.email}</code>
@@ -302,7 +327,7 @@ export default async function AdminPage({
         )}
       </section>
 
-      <p className="mt-12 text-xs text-slate-500">
+      <p className="mt-12 text-xs text-slate-500 dark:text-slate-400">
         Last fetched {new Date(stats.now * 1000).toLocaleString()}.
       </p>
     </ContentLayout>
@@ -311,20 +336,20 @@ export default async function AdminPage({
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 font-mono text-2xl text-slate-900">{value}</p>
+    <div className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 font-mono text-2xl text-slate-900 dark:text-slate-100">{value}</p>
     </div>
   );
 }
 
 function Funnel({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3">
-      <dt className="text-xs uppercase tracking-wide text-slate-500">
+    <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+      <dt className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </dt>
-      <dd className="mt-1 font-mono text-lg text-slate-900">{value}</dd>
+      <dd className="mt-1 font-mono text-lg text-slate-900 dark:text-slate-100">{value}</dd>
     </div>
   );
 }
@@ -339,18 +364,18 @@ function Breakdown({
   const entries = Object.entries(data);
   const total = entries.reduce((acc, [, v]) => acc + v, 0) || 1;
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4">
-      <h3 className="mb-3 text-sm font-medium text-slate-700">{label}</h3>
+    <div className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <h3 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">{label}</h3>
       {entries.length === 0 ? (
-        <p className="text-sm text-slate-500">No data yet.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">No data yet.</p>
       ) : (
         <ul className="space-y-2 text-sm">
           {entries.map(([k, v]) => (
             <li key={k} className="flex items-center justify-between">
-              <span className="font-mono text-slate-700">{k}</span>
+              <span className="font-mono text-slate-700 dark:text-slate-300">{k}</span>
               <span>
-                <span className="mr-2 font-mono text-slate-900">{v}</span>
-                <span className="text-xs text-slate-500">
+                <span className="mr-2 font-mono text-slate-900 dark:text-slate-100">{v}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-500">
                   ({Math.round((v / total) * 100)}%)
                 </span>
               </span>
@@ -369,22 +394,22 @@ function ClaudeTier({
 }) {
   const entries = Object.entries(data);
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4">
-      <h3 className="mb-3 text-sm font-medium text-slate-700">
+    <div className="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <h3 className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">
         Claude model tier
       </h3>
       {entries.length === 0 ? (
-        <p className="text-sm text-slate-500">No Claude jobs yet.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">No Claude jobs yet.</p>
       ) : (
         <ul className="space-y-2 text-sm">
           {entries.map(([tier, info]) => (
             <li key={tier}>
               <div className="flex items-center justify-between">
-                <span className="font-mono text-slate-700">{tier}</span>
-                <span className="font-mono text-slate-900">{info.total}</span>
+                <span className="font-mono text-slate-700 dark:text-slate-300">{tier}</span>
+                <span className="font-mono text-slate-900 dark:text-slate-100">{info.total}</span>
               </div>
               {info.fell_back_to_haiku > 0 && (
-                <p className="text-xs text-amber-700">
+                <p className="text-xs text-amber-700 dark:text-amber-400">
                   {info.fell_back_to_haiku} fell back to Haiku
                 </p>
               )}

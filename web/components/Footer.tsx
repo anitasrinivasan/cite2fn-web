@@ -2,8 +2,8 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="mt-16 border-t border-slate-200 bg-white">
-      <div className="mx-auto max-w-4xl space-y-3 px-6 py-6 text-xs text-slate-500">
+    <footer className="mt-16 border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="mx-auto max-w-4xl space-y-3 px-6 py-6 text-xs text-slate-500 dark:text-slate-400">
         <p>
           Uploaded documents and outputs auto-delete after 24 hours. No account
           required. We don&apos;t store your Claude API key or share your
@@ -14,20 +14,20 @@ export function Footer() {
             href="https://www.anitasrinivasan.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline-offset-4 hover:text-slate-900 hover:underline"
+            className="underline-offset-4 hover:text-slate-900 hover:underline dark:hover:text-slate-200"
           >
             © 2026 Anita Srinivasan
           </a>
           <div className="flex items-center gap-4">
             <Link
               href="/terms"
-              className="underline-offset-4 hover:text-slate-900 hover:underline"
+              className="underline-offset-4 hover:text-slate-900 hover:underline dark:hover:text-slate-200"
             >
               Terms
             </Link>
             <Link
               href="/privacy"
-              className="underline-offset-4 hover:text-slate-900 hover:underline"
+              className="underline-offset-4 hover:text-slate-900 hover:underline dark:hover:text-slate-200"
             >
               Privacy
             </Link>

@@ -8,9 +8,9 @@ export const metadata: Metadata = {
 export default function Privacy() {
   return (
     <ContentLayout title="Privacy Policy">
-      <p className="text-xs text-slate-500">Last updated: April 2026.</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">Last updated: April 2026.</p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         What we process
       </h2>
       <ul className="list-disc space-y-1 pl-6">
@@ -36,7 +36,7 @@ export default function Privacy() {
         </li>
       </ul>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         What we do not do
       </h2>
       <ul className="list-disc space-y-1 pl-6">
@@ -46,7 +46,7 @@ export default function Privacy() {
         <li>No selling or sharing of your data with third parties other than what is strictly required to fulfill your request (see below).</li>
       </ul>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         Third parties involved in processing
       </h2>
       <ul className="list-disc space-y-1 pl-6">
@@ -66,7 +66,7 @@ export default function Privacy() {
         </li>
       </ul>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         Operational metrics
       </h2>
       <p>
@@ -78,7 +78,7 @@ export default function Privacy() {
         metrics. They are retained indefinitely for trend analysis.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         Bug reports
       </h2>
       <p>
@@ -88,7 +88,7 @@ export default function Privacy() {
         report to be deleted by contacting us at the address below.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         Retention and deletion
       </h2>
       <p>
@@ -98,7 +98,7 @@ export default function Privacy() {
         your data on the same schedule. We do not keep backups of uploads.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         Your rights
       </h2>
       <p>
@@ -109,7 +109,7 @@ export default function Privacy() {
         contact the author — see below.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         Contact
       </h2>
       <p>
@@ -126,7 +126,7 @@ export default function Privacy() {
         .
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         Changes to this policy
       </h2>
       <p>

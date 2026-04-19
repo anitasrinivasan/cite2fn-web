@@ -36,25 +36,25 @@ export function ProgressPanel({ job }: { job: Job }) {
   const eta = useEta(showBar ? phase : undefined, done, total);
 
   return (
-    <div className="space-y-6 rounded-lg border border-slate-200 bg-white p-8">
+    <div className="space-y-6 rounded-lg border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-slate-900">{copy.title}</h2>
-        <p className="text-sm text-slate-600">{copy.subtitle}</p>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{copy.title}</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400">{copy.subtitle}</p>
       </div>
 
       {showBar ? (
         <div className="space-y-2">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
             <div
-              className="h-full bg-slate-900 transition-all"
+              className="h-full bg-slate-900 transition-all dark:bg-slate-300"
               style={{ width: `${Math.min(100, (done / total) * 100)}%` }}
             />
           </div>
           <div className="flex items-baseline justify-between">
-            <p className="font-mono text-xs text-slate-600">
+            <p className="font-mono text-xs text-slate-600 dark:text-slate-400">
               {done} / {total}
             </p>
-            {eta && <p className="text-xs text-slate-500">{eta}</p>}
+            {eta && <p className="text-xs text-slate-500 dark:text-slate-500">{eta}</p>}
           </div>
         </div>
       ) : (
@@ -68,7 +68,7 @@ function Spinner() {
   return (
     <div className="flex items-center gap-3">
       <svg
-        className="h-5 w-5 animate-spin text-slate-900"
+        className="h-5 w-5 animate-spin text-slate-900 dark:text-slate-100"
         viewBox="0 0 24 24"
         fill="none"
         aria-hidden
@@ -81,7 +81,7 @@ function Spinner() {
           strokeLinecap="round"
         />
       </svg>
-      <span className="text-sm text-slate-600">Working…</span>
+      <span className="text-sm text-slate-600 dark:text-slate-400">Working…</span>
     </div>
   );
 }

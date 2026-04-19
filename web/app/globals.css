@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+/* Use class-based dark mode so the ThemeToggle can flip a root-level class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #0f172a;
+}
+
+.dark {
+  --background: #0b1220;
+  --foreground: #e2e8f0;
+  color-scheme: dark;
 }
 
 html {

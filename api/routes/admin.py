@@ -9,9 +9,11 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 
 from api import config, jobs
 
@@ -206,19 +208,29 @@ def admin_stats(
             LIMIT 20
             """
         ).fetchall()
-        recent_feedback = [
-            {
-                "id": r["id"],
-                "title": r["title"],
-                "description": r["description"],
-                "email": r["email"],
-                "job_id": r["job_id"],
-                "user_agent": r["user_agent"],
-                "is_test": bool(r["is_test"]),
-                "created_at": r["created_at"],
-            }
-            for r in feedback_rows
-        ]
+        recent_feedback = []
+        for r in feedback_rows:
+            atts = jobs.list_feedback_attachments(r["id"])
+            recent_feedback.append(
+                {
+                    "id": r["id"],
+                    "title": r["title"],
+                    "description": r["description"],
+                    "email": r["email"],
+                    "job_id": r["job_id"],
+                    "user_agent": r["user_agent"],
+                    "is_test": bool(r["is_test"]),
+                    "created_at": r["created_at"],
+                    "attachments": [
+                        {
+                            "filename": a["filename"],
+                            "mime_type": a["mime_type"],
+                            "size_bytes": a["size_bytes"],
+                        }
+                        for a in atts
+                    ],
+                }
+            )
 
     return {
         "now": now,
@@ -243,3 +255,26 @@ def _round(value: float | None) -> float | None:
     if value is None:
         return None
     return round(float(value), 1)
+
+
+@router.get("/admin/feedback/{feedback_id}/attachments/{filename}")
+def admin_feedback_attachment(
+    feedback_id: int,
+    filename: str,
+    token: str | None = Query(default=None),
+):
+    """Serve an individual feedback attachment to the admin dashboard.
+    Token-gated; filename is joined carefully to prevent path traversal."""
+    _require_token(token)
+
+    root = jobs.feedback_attachments_dir() / str(feedback_id)
+    safe_name = Path(filename).name  # strip any path components
+    path = root / safe_name
+    if not path.exists() or not path.is_file():
+        raise HTTPException(404, "Attachment not found.")
+    # Sanity: ensure the resolved path is still inside the attachments dir.
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        raise HTTPException(404, "Attachment not found.")
+    return FileResponse(path=str(path))

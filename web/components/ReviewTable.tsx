@@ -33,7 +33,7 @@ export function ReviewTable({
   return (
     <div className="space-y-6">
       {sonnetFellBack && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
           <strong>Note:</strong> Your Claude account didn&apos;t support Sonnet 4.6
           for this job, so we used Haiku 4.5 instead. Results may differ from
           what Sonnet would have produced.
@@ -41,16 +41,16 @@ export function ReviewTable({
       )}
       <div className="flex flex-wrap items-baseline justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             Review your citations
           </h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             {citations.length} detected
             {flaggedCount > 0 && (
               <>
                 {" "}
                 &middot;{" "}
-                <span className="font-medium text-amber-700">
+                <span className="font-medium text-amber-700 dark:text-amber-400">
                   {flaggedCount} flagged for review
                 </span>
               </>
@@ -69,26 +69,26 @@ export function ReviewTable({
               key={c.id}
               className={`rounded-md border p-4 ${
                 flagged
-                  ? "border-amber-300 bg-amber-50"
-                  : "border-slate-200 bg-white"
+                  ? "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950"
+                  : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
               }`}
             >
               <div className="mb-2 flex items-start justify-between gap-4">
                 <div className="min-w-0 space-y-0.5">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Original:{" "}
-                    <span className="font-mono normal-case text-slate-700">
+                    <span className="font-mono normal-case text-slate-700 dark:text-slate-300">
                       {c.display_text}
                     </span>
                   </p>
                   {c.url && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Source:{" "}
                       <a
                         href={c.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono text-slate-700 underline-offset-2 hover:text-slate-900 hover:underline break-all"
+                        className="font-mono text-slate-700 underline-offset-2 hover:text-slate-900 hover:underline break-all dark:text-slate-300 dark:hover:text-slate-100"
                       >
                         {c.url}
                       </a>
@@ -96,7 +96,7 @@ export function ReviewTable({
                   )}
                 </div>
                 {flagged && (
-                  <span className="shrink-0 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
+                  <span className="shrink-0 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900 dark:text-amber-100">
                     Needs review
                   </span>
                 )}
@@ -107,7 +107,7 @@ export function ReviewTable({
                   setEdits((prev) => ({ ...prev, [c.id]: e.target.value }))
                 }
                 rows={Math.max(2, Math.ceil(value.length / 80))}
-                className="w-full resize-y rounded-md border border-slate-300 bg-white p-2 font-mono text-sm text-slate-900 focus:border-slate-900 focus:outline-none"
+                className="w-full resize-y rounded-md border border-slate-300 bg-white p-2 font-mono text-sm text-slate-900 focus:border-slate-900 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-slate-400"
               />
             </li>
           );
@@ -118,7 +118,7 @@ export function ReviewTable({
         <button
           onClick={handleAccept}
           disabled={submitting}
-          className="rounded-md bg-slate-900 px-6 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="rounded-md bg-slate-900 px-6 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
         >
           {submitting ? "Submitting…" : "Accept and generate document"}
         </button>

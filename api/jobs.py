@@ -192,6 +192,23 @@ def init_db() -> None:
             except sqlite3.OperationalError:
                 pass
 
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS feedback_attachments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                feedback_id INTEGER NOT NULL,
+                filename TEXT NOT NULL,
+                mime_type TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY(feedback_id) REFERENCES feedback(id)
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_fb_attach_fb_id ON feedback_attachments(feedback_id)"
+        )
+
 
 def create_job(
     style: Style,
@@ -362,6 +379,45 @@ def insert_feedback(
             (title, description, email, job_id, user_agent, int(is_test), now),
         )
         return cursor.lastrowid or 0
+
+
+def insert_feedback_attachment(
+    feedback_id: int,
+    filename: str,
+    mime_type: str,
+    size_bytes: int,
+) -> int:
+    """Record that a file was attached to a feedback report. Returns the row id.
+    The caller is responsible for actually writing the bytes to disk at
+    settings.storage_dir / "feedback" / feedback_id / filename."""
+    now = int(time.time())
+    with _connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO feedback_attachments (feedback_id, filename, mime_type, size_bytes, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (feedback_id, filename, mime_type, size_bytes, now),
+        )
+        return cursor.lastrowid or 0
+
+
+def list_feedback_attachments(feedback_id: int) -> list[dict[str, Any]]:
+    """Return metadata rows for all attachments on a given feedback id."""
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, feedback_id, filename, mime_type, size_bytes, created_at
+            FROM feedback_attachments WHERE feedback_id = ?
+            ORDER BY id ASC
+            """,
+            (feedback_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def feedback_attachments_dir() -> Path:
+    return settings.storage_dir / "feedback"
 
 
 @contextmanager

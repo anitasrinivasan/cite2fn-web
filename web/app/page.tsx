@@ -84,7 +84,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950">
       <Header jobId={jobId} />
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">{body}</main>
       <Footer />
@@ -104,11 +104,11 @@ function Landing({
   return (
     <div className="space-y-10">
       <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           Convert citations in any <code className="font-mono">.docx</code> to
           Bluebook or APA
         </h1>
-        <p className="max-w-2xl text-slate-600">
+        <p className="max-w-2xl text-slate-600 dark:text-slate-400">
           Upload a Word document with linked sources — hyperlinks, parenthetical
           citations, inline author-date references. We&apos;ll pull metadata
           from each source, format every citation in your chosen style, and
@@ -122,7 +122,7 @@ function Landing({
 
 function LoadingShell() {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-8 text-sm text-slate-600">
+    <div className="rounded-lg border border-slate-200 bg-white p-8 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
       Loading…
     </div>
   );

@@ -17,20 +17,20 @@ export default function HowItWorks() {
         bar.
       </p>
 
-      <h2 className="mt-10 text-xl font-semibold text-slate-900">
+      <h2 className="mt-10 text-xl font-semibold text-slate-900 dark:text-slate-100">
         The pipeline
       </h2>
 
       <ol className="list-decimal space-y-3 pl-6">
         <li>
-          <span className="font-medium text-slate-900">Detect.</span> We scan
+          <span className="font-medium text-slate-900 dark:text-slate-100">Detect.</span> We scan
           every paragraph for citations: hyperlinks to sources, parenthetical
           author-date markers like <code>(Smith 2023)</code>, inline mentions
           like <code>Smith (2023) argued</code>, and any existing footnotes
           that still have bare URLs instead of proper citations.
         </li>
         <li>
-          <span className="font-medium text-slate-900">Fetch metadata.</span>{" "}
+          <span className="font-medium text-slate-900 dark:text-slate-100">Fetch metadata.</span>{" "}
           For each linked URL we pull title, authors, journal, year, and other
           bibliographic fields from the source page. We canonicalize URLs
           (stripping library-proxy wrappers, CDN tokens, and other
@@ -38,21 +38,21 @@ export default function HowItWorks() {
           address.
         </li>
         <li>
-          <span className="font-medium text-slate-900">Format.</span> The
+          <span className="font-medium text-slate-900 dark:text-slate-100">Format.</span> The
           bibliographic details plus surrounding context go to a language
           model, which writes each citation in the style you picked — Bluebook
           21st or APA 7th — with italics, small caps, and the acronym
           conventions applied correctly.
         </li>
         <li>
-          <span className="font-medium text-slate-900">Review.</span> Before
+          <span className="font-medium text-slate-900 dark:text-slate-100">Review.</span> Before
           any footnote is inserted into your document, you see every
           formatted citation in a table alongside the original source URL.
           Anything the model flagged as low-confidence is highlighted in
           amber. Edit inline, then accept.
         </li>
         <li>
-          <span className="font-medium text-slate-900">Assemble.</span> We
+          <span className="font-medium text-slate-900 dark:text-slate-100">Assemble.</span> We
           insert footnotes at the right position (after the relevant
           punctuation, with the citation phrase removed from the body),
           renumber, and merge adjacent citations per Bluebook convention. You
@@ -60,22 +60,22 @@ export default function HowItWorks() {
         </li>
       </ol>
 
-      <h2 className="mt-10 text-xl font-semibold text-slate-900">
+      <h2 className="mt-10 text-xl font-semibold text-slate-900 dark:text-slate-100">
         What you can configure
       </h2>
 
       <ul className="list-disc space-y-2 pl-6">
         <li>
-          <span className="font-medium text-slate-900">Style:</span> Bluebook
+          <span className="font-medium text-slate-900 dark:text-slate-100">Style:</span> Bluebook
           21st edition or APA 7th edition.
         </li>
         <li>
-          <span className="font-medium text-slate-900">Output format:</span>{" "}
+          <span className="font-medium text-slate-900 dark:text-slate-100">Output format:</span>{" "}
           footnotes, endnotes, or a list of references appended to the
           document.
         </li>
         <li>
-          <span className="font-medium text-slate-900">
+          <span className="font-medium text-slate-900 dark:text-slate-100">
             Formatting engine:
           </span>{" "}
           paste your own Anthropic (Claude) API key for best quality, or use
@@ -83,13 +83,13 @@ export default function HowItWorks() {
           in memory for the duration of the job and is never written to disk.
         </li>
         <li>
-          <span className="font-medium text-slate-900">Advanced:</span>{" "}
+          <span className="font-medium text-slate-900 dark:text-slate-100">Advanced:</span>{" "}
           optionally keep your original References section in the output
           document.
         </li>
       </ul>
 
-      <h2 className="mt-10 text-xl font-semibold text-slate-900">
+      <h2 className="mt-10 text-xl font-semibold text-slate-900 dark:text-slate-100">
         What it is not
       </h2>
       <p>
@@ -100,7 +100,7 @@ export default function HowItWorks() {
         the tedious 80% cheap; the last 20% is still yours.
       </p>
 
-      <p className="mt-16 text-sm text-slate-500">
+      <p className="mt-16 text-sm text-slate-500 dark:text-slate-400">
         Built by{" "}
         <a
           href="https://www.anitasrinivasan.com"

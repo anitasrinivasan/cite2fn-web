@@ -8,9 +8,9 @@ export const metadata: Metadata = {
 export default function Terms() {
   return (
     <ContentLayout title="Terms of Use">
-      <p className="text-xs text-slate-500">Last updated: April 2026.</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">Last updated: April 2026.</p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         1. What this service is
       </h2>
       <p>
@@ -20,7 +20,7 @@ export default function Terms() {
         agree to these Terms of Use.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         2. No warranty
       </h2>
       <p>
@@ -33,7 +33,7 @@ export default function Terms() {
         output before relying on it.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         3. What you may not upload
       </h2>
       <p>Please do not use the Service to process documents that contain:</p>
@@ -51,7 +51,7 @@ export default function Terms() {
         readable by a server operator during that window.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         4. Third-party services
       </h2>
       <p>
@@ -62,7 +62,7 @@ export default function Terms() {
         those third parties is subject to their own terms.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         5. Rate limits and availability
       </h2>
       <p>
@@ -71,7 +71,7 @@ export default function Terms() {
         at any time without notice.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         6. Limitation of liability
       </h2>
       <p>
@@ -81,7 +81,7 @@ export default function Terms() {
         arising from your use of the Service.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         7. Governing law
       </h2>
       <p>
@@ -92,7 +92,7 @@ export default function Terms() {
         residence.
       </p>
 
-      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+      <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">
         8. Changes to these Terms
       </h2>
       <p>

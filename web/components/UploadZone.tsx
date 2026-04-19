@@ -67,8 +67,8 @@ export function UploadZone({
       <div
         className={`rounded-lg border-2 border-dashed p-10 text-center transition ${
           dragOver
-            ? "border-slate-900 bg-slate-50"
-            : "border-slate-300 bg-white"
+            ? "border-slate-900 bg-slate-50 dark:border-slate-300 dark:bg-slate-800"
+            : "border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
         }`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -90,10 +90,10 @@ export function UploadZone({
         />
         {file ? (
           <div className="space-y-2">
-            <p className="font-mono text-sm text-slate-700">{file.name}</p>
+            <p className="font-mono text-sm text-slate-700 dark:text-slate-300">{file.name}</p>
             <button
               type="button"
-              className="text-xs text-slate-500 underline hover:text-slate-800"
+              className="text-xs text-slate-500 underline hover:text-slate-800 dark:hover:text-slate-200"
               onClick={() => {
                 setFile(null);
                 if (fileInputRef.current) fileInputRef.current.value = "";
@@ -104,13 +104,13 @@ export function UploadZone({
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-slate-700">
+            <p className="text-slate-700 dark:text-slate-300">
               Drop a <code className="font-mono">.docx</code> here
             </p>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="text-sm font-medium text-slate-900 underline"
+              className="text-sm font-medium text-slate-900 underline dark:text-slate-100"
             >
               or browse
             </button>
@@ -164,7 +164,7 @@ export function UploadZone({
             <div>
               <label
                 htmlFor="claude-key"
-                className="block text-sm font-medium text-slate-700"
+                className="block text-sm font-medium text-slate-700 dark:text-slate-300"
               >
                 Claude API key
               </label>
@@ -176,17 +176,17 @@ export function UploadZone({
                 value={claudeKey}
                 onChange={(e) => setClaudeKey(e.target.value)}
                 placeholder="sk-ant-..."
-                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-900 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-600 dark:focus:border-slate-400"
               />
               <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Held in memory on our server for this job only. Never logged, never stored.
                 </p>
                 <a
                   href="https://console.anthropic.com/settings/keys"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline"
+                  className="text-xs text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-slate-100"
                 >
                   Don&apos;t have one? Get a Claude API key →
                 </a>
@@ -210,7 +210,7 @@ export function UploadZone({
               ]}
             />
             {claudeModelTier === "sonnet" && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 If your account doesn&apos;t support Sonnet 4.6 we&apos;ll automatically
                 retry with Haiku 4.5 and flag any affected citations for review.
               </p>
@@ -223,13 +223,13 @@ export function UploadZone({
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-sm text-slate-600 underline-offset-4 hover:underline"
+          className="text-sm text-slate-600 underline-offset-4 hover:underline dark:text-slate-400 dark:hover:text-slate-200"
         >
           {showAdvanced ? "Hide" : "Show"} advanced options
         </button>
         {showAdvanced && (
           <div className="mt-3">
-            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
               <input
                 type="checkbox"
                 checked={keepRefs}
@@ -243,7 +243,7 @@ export function UploadZone({
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
           {error}
         </div>
       )}
@@ -251,7 +251,7 @@ export function UploadZone({
       <button
         type="submit"
         disabled={disabled || !file}
-        className="w-full rounded-md bg-slate-900 py-3 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="w-full rounded-md bg-slate-900 py-3 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
       >
         Convert citations
       </button>
@@ -274,14 +274,14 @@ function RadioGroup({
 }) {
   return (
     <fieldset>
-      <legend className="mb-2 block text-sm font-medium text-slate-700">
+      <legend className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
         {label}
       </legend>
       <div className="space-y-2">
         {options.map((opt) => (
           <label
             key={opt.value}
-            className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm hover:border-slate-400"
+            className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-500"
           >
             <input
               type="radio"
@@ -291,7 +291,7 @@ function RadioGroup({
               onChange={() => onChange(opt.value)}
               className="mt-0.5"
             />
-            <span className="text-slate-800">{opt.label}</span>
+            <span className="text-slate-800 dark:text-slate-200">{opt.label}</span>
           </label>
         ))}
       </div>

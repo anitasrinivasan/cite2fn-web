@@ -1,4 +1,11 @@
-import type { Citation, Job, LLMBackend, OutputFormat, Style } from "./types";
+import type {
+  Citation,
+  ClaudeModelTier,
+  Job,
+  LLMBackend,
+  OutputFormat,
+  Style,
+} from "./types";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -9,6 +16,7 @@ export type UploadOptions = {
   output_format: OutputFormat;
   llm_backend: LLMBackend;
   claude_api_key?: string;
+  claude_model_tier?: ClaudeModelTier;
   keep_references?: boolean;
 };
 
@@ -19,6 +27,7 @@ export async function uploadJob(opts: UploadOptions): Promise<Job> {
   form.set("output_format", opts.output_format);
   form.set("llm_backend", opts.llm_backend);
   if (opts.claude_api_key) form.set("claude_api_key", opts.claude_api_key);
+  if (opts.claude_model_tier) form.set("claude_model_tier", opts.claude_model_tier);
   if (opts.keep_references) form.set("keep_references", "true");
 
   const res = await fetch(`${API_BASE}/api/jobs`, {
@@ -30,6 +39,22 @@ export async function uploadJob(opts: UploadOptions): Promise<Job> {
     throw new Error(detail);
   }
   return (await res.json()) as Job;
+}
+
+export type FeedbackPayload = {
+  title: string;
+  description: string;
+  email?: string;
+  job_id?: string;
+};
+
+export async function submitFeedback(payload: FeedbackPayload): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await extractError(res));
 }
 
 export async function getJob(jobId: string): Promise<Job | null> {

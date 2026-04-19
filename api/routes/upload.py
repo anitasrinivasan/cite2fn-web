@@ -21,6 +21,7 @@ async def create_job(
     keep_references: bool = Form(False),
     llm_backend: str = Form(...),
     claude_api_key: str | None = Form(None),
+    claude_model_tier: str = Form("haiku"),
 ) -> dict:
     # --- Validate inputs ---
     if not (file.filename or "").lower().endswith(".docx"):
@@ -31,6 +32,8 @@ async def create_job(
         raise HTTPException(400, "output_format must be 'footnotes', 'endnotes', or 'references'.")
     if llm_backend not in ("claude", "groq"):
         raise HTTPException(400, "llm_backend must be 'claude' or 'groq'.")
+    if claude_model_tier not in ("haiku", "sonnet"):
+        raise HTTPException(400, "claude_model_tier must be 'haiku' or 'sonnet'.")
 
     if llm_backend == "claude" and not claude_api_key:
         raise HTTPException(
@@ -49,6 +52,16 @@ async def create_job(
         output_format=output_format,  # type: ignore[arg-type]
         keep_references=keep_references,
         llm_backend=llm_backend,  # type: ignore[arg-type]
+        claude_model_tier=claude_model_tier,  # type: ignore[arg-type]
+    )
+    jobs.record_event(
+        "job_created",
+        job_id=job.id,
+        style=style,
+        output_format=output_format,
+        keep_references=keep_references,
+        llm_backend=llm_backend,
+        claude_model_tier=claude_model_tier if llm_backend == "claude" else None,
     )
     try:
         with job.input_path.open("wb") as dst:

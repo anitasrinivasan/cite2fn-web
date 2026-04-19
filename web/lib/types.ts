@@ -11,6 +11,7 @@ export type JobStatus =
 export type Style = "bluebook" | "apa";
 export type OutputFormat = "footnotes" | "endnotes" | "references";
 export type LLMBackend = "claude" | "groq";
+export type ClaudeModelTier = "haiku" | "sonnet";
 
 export type Progress = {
   phase?: string;
@@ -44,6 +45,8 @@ export type Job = {
   style: Style;
   output_format: OutputFormat;
   llm_backend: LLMBackend;
+  claude_model_tier?: ClaudeModelTier;
+  sonnet_fell_back?: boolean;
   progress: Progress;
   error: string | null;
   created_at: number;

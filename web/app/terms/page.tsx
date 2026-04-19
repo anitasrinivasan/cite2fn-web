@@ -8,13 +8,6 @@ export const metadata: Metadata = {
 export default function Terms() {
   return (
     <ContentLayout title="Terms of Use">
-      <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <strong>Draft — please review with counsel.</strong> This is a
-        reasonable starting point for a free research tool, but it is not
-        legal advice and should be reviewed by a licensed attorney before
-        being relied on in any jurisdiction.
-      </div>
-
       <p className="text-xs text-slate-500">Last updated: April 2026.</p>
 
       <h2 className="mt-8 text-xl font-semibold text-slate-900">

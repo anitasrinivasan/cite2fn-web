@@ -35,6 +35,7 @@ Status = Literal[
 Style = Literal["bluebook", "apa"]
 OutputFormat = Literal["footnotes", "endnotes", "references"]
 LLMBackend = Literal["claude", "groq"]
+ClaudeModelTier = Literal["haiku", "sonnet"]
 
 
 @dataclass
@@ -45,10 +46,15 @@ class Job:
     output_format: OutputFormat
     keep_references: bool
     llm_backend: LLMBackend
+    claude_model_tier: ClaudeModelTier = "haiku"
     phase_progress: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     created_at: int = 0
     updated_at: int = 0
+    # Set to True if we attempted Sonnet but had to fall back to Haiku for
+    # this job (free-tier Claude accounts don't serve Sonnet). Surfaced in
+    # the review UI so users know what they got.
+    sonnet_fell_back: bool = False
 
     @property
     def dir(self) -> Path:
@@ -74,6 +80,8 @@ class Job:
             "style": self.style,
             "output_format": self.output_format,
             "llm_backend": self.llm_backend,
+            "claude_model_tier": self.claude_model_tier,
+            "sonnet_fell_back": self.sonnet_fell_back,
             "progress": self.phase_progress,
             "error": self.error,
             "created_at": self.created_at,
@@ -115,10 +123,54 @@ def init_db() -> None:
                 output_format TEXT NOT NULL,
                 keep_references INTEGER NOT NULL DEFAULT 0,
                 llm_backend TEXT NOT NULL,
+                claude_model_tier TEXT NOT NULL DEFAULT 'haiku',
+                sonnet_fell_back INTEGER NOT NULL DEFAULT 0,
                 phase_progress TEXT NOT NULL DEFAULT '{}',
                 error TEXT,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
+            )
+            """
+        )
+        # Additive migration for databases created before the new columns
+        # existed. SQLite ignores errors on duplicate add — we swallow them.
+        for col, ddl in (
+            ("claude_model_tier", "TEXT NOT NULL DEFAULT 'haiku'"),
+            ("sonnet_fell_back", "INTEGER NOT NULL DEFAULT 0"),
+        ):
+            try:
+                conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {ddl}")
+            except sqlite3.OperationalError:
+                pass
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT NOT NULL,
+                job_id TEXT,
+                metadata TEXT NOT NULL DEFAULT '{}',
+                created_at INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type)"
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                email TEXT,
+                job_id TEXT,
+                user_agent TEXT,
+                created_at INTEGER NOT NULL
             )
             """
         )
@@ -129,6 +181,7 @@ def create_job(
     output_format: OutputFormat,
     keep_references: bool,
     llm_backend: LLMBackend,
+    claude_model_tier: ClaudeModelTier = "haiku",
 ) -> Job:
     now = int(time.time())
     job = Job(
@@ -138,6 +191,7 @@ def create_job(
         output_format=output_format,
         keep_references=keep_references,
         llm_backend=llm_backend,
+        claude_model_tier=claude_model_tier,
         created_at=now,
         updated_at=now,
     )
@@ -146,8 +200,9 @@ def create_job(
         conn.execute(
             """
             INSERT INTO jobs (id, status, style, output_format, keep_references,
-                              llm_backend, phase_progress, error, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                              llm_backend, claude_model_tier, phase_progress, error,
+                              created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job.id,
@@ -156,6 +211,7 @@ def create_job(
                 job.output_format,
                 int(job.keep_references),
                 job.llm_backend,
+                job.claude_model_tier,
                 json.dumps(job.phase_progress),
                 job.error,
                 job.created_at,
@@ -163,6 +219,17 @@ def create_job(
             ),
         )
     return job
+
+
+def mark_sonnet_fell_back(job_id: str) -> None:
+    """Set the sonnet_fell_back flag on a job — the Claude driver calls this
+    when an attempted Sonnet request returned a tier-not-supported error and
+    we retried with Haiku."""
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE jobs SET sonnet_fell_back = 1, updated_at = ? WHERE id = ?",
+            (int(time.time()), job_id),
+        )
 
 
 def get_job(job_id: str) -> Job | None:
@@ -201,6 +268,16 @@ def update_job(
 
 
 def _row_to_job(row: sqlite3.Row) -> Job:
+    # claude_model_tier and sonnet_fell_back are added via ALTER in init_db
+    # for already-existing databases; default safely if the row predates them.
+    try:
+        claude_model_tier = row["claude_model_tier"] or "haiku"
+    except (IndexError, KeyError):
+        claude_model_tier = "haiku"
+    try:
+        sonnet_fell_back = bool(row["sonnet_fell_back"])
+    except (IndexError, KeyError):
+        sonnet_fell_back = False
     return Job(
         id=row["id"],
         status=row["status"],
@@ -208,11 +285,53 @@ def _row_to_job(row: sqlite3.Row) -> Job:
         output_format=row["output_format"],
         keep_references=bool(row["keep_references"]),
         llm_backend=row["llm_backend"],
+        claude_model_tier=claude_model_tier,
+        sonnet_fell_back=sonnet_fell_back,
         phase_progress=json.loads(row["phase_progress"] or "{}"),
         error=row["error"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
+
+
+def record_event(
+    event_type: str,
+    job_id: str | None = None,
+    **metadata: Any,
+) -> None:
+    """Insert a row into the `events` table.
+
+    No PII — pass only aggregate / operational fields. Events persist
+    indefinitely for trend analysis; individual job data is still deleted on
+    the job TTL schedule (the events just reference job_id as a string).
+    """
+    now = int(time.time())
+    payload = json.dumps(metadata, ensure_ascii=False) if metadata else "{}"
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO events (event_type, job_id, metadata, created_at) VALUES (?, ?, ?, ?)",
+            (event_type, job_id, payload, now),
+        )
+
+
+def insert_feedback(
+    title: str,
+    description: str,
+    email: str | None = None,
+    job_id: str | None = None,
+    user_agent: str | None = None,
+) -> int:
+    """Insert a bug-report / feedback row. Returns the new row id."""
+    now = int(time.time())
+    with _connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO feedback (title, description, email, job_id, user_agent, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (title, description, email, job_id, user_agent, now),
+        )
+        return cursor.lastrowid or 0
 
 
 @contextmanager

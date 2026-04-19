@@ -7,10 +7,12 @@ export function ReviewTable({
   citations,
   onAccept,
   submitting,
+  sonnetFellBack,
 }: {
   citations: Citation[];
   onAccept: (edited: Pick<Citation, "id" | "bluebook_text" | "confidence">[]) => void;
   submitting: boolean;
+  sonnetFellBack?: boolean;
 }) {
   const [edits, setEdits] = useState<Record<string, string>>({});
 
@@ -30,6 +32,13 @@ export function ReviewTable({
 
   return (
     <div className="space-y-6">
+      {sonnetFellBack && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong>Note:</strong> Your Claude account didn&apos;t support Sonnet 4.6
+          for this job, so we used Haiku 4.5 instead. Results may differ from
+          what Sonnet would have produced.
+        </div>
+      )}
       <div className="flex flex-wrap items-baseline justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">

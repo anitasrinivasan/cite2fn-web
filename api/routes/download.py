@@ -24,6 +24,8 @@ def download(job_id: str):
     if not job.output_path.exists():
         raise HTTPException(500, "Output file missing on disk.")
 
+    jobs_module.record_event("download_fetched", job_id=job_id)
+
     return FileResponse(
         path=str(job.output_path),
         media_type=DOCX_CONTENT_TYPE,

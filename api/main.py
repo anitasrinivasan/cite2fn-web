@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api import jobs
 from api.config import settings
-from api.routes import download, jobs as jobs_routes, upload
+from api.routes import admin, download, feedback, jobs as jobs_routes, upload
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,6 +38,8 @@ app.add_middleware(
 app.include_router(upload.router, prefix="/api")
 app.include_router(jobs_routes.router, prefix="/api")
 app.include_router(download.router, prefix="/api")
+app.include_router(feedback.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 
 
 @app.get("/health")

@@ -8,13 +8,6 @@ export const metadata: Metadata = {
 export default function Privacy() {
   return (
     <ContentLayout title="Privacy Policy">
-      <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <strong>Draft — please review with counsel.</strong> This document
-        describes the actual data practices of the Service to the best of the
-        author&apos;s knowledge, but is not a substitute for a legally
-        reviewed privacy notice. Confirm with an attorney before publishing.
-      </div>
-
       <p className="text-xs text-slate-500">Last updated: April 2026.</p>
 
       <h2 className="mt-8 text-xl font-semibold text-slate-900">
@@ -72,6 +65,28 @@ export default function Privacy() {
           fetching their public metadata.
         </li>
       </ul>
+
+      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+        Operational metrics
+      </h2>
+      <p>
+        We log aggregate usage metrics to understand how the service is being
+        used — the citation style you chose, the output format, which
+        formatting engine, counts of citations detected and successfully
+        converted, and which processing phase (if any) errored. No document
+        content and no personally identifiable data is recorded in these
+        metrics. They are retained indefinitely for trend analysis.
+      </p>
+
+      <h2 className="mt-8 text-xl font-semibold text-slate-900">
+        Bug reports
+      </h2>
+      <p>
+        If you submit a bug report via the in-site form, we store the title,
+        description, your email (if you provide one), and your user agent.
+        Bug reports are retained until resolved; you can ask for a specific
+        report to be deleted by contacting us at the address below.
+      </p>
 
       <h2 className="mt-8 text-xl font-semibold text-slate-900">
         Retention and deletion

@@ -48,7 +48,19 @@ def _driver_for_job(job: jobs.Job) -> Driver:
         key = jobs.get_api_key(job.id)
         if not key:
             raise RuntimeError("Claude backend selected but no API key in memory")
-        return claude_driver.ClaudeDriver(api_key=key)
+
+        def _mark_fallback() -> None:
+            jobs.mark_sonnet_fell_back(job.id)
+            jobs.record_event(
+                "sonnet_fell_back_to_haiku",
+                job_id=job.id,
+            )
+
+        return claude_driver.ClaudeDriver(
+            api_key=key,
+            model_tier=job.claude_model_tier,
+            on_fallback=_mark_fallback,
+        )
     return groq_driver.GroqDriver()
 
 

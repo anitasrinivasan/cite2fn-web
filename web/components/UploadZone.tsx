@@ -1,7 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { LLMBackend, OutputFormat, Style } from "@/lib/types";
+import type {
+  ClaudeModelTier,
+  LLMBackend,
+  OutputFormat,
+  Style,
+} from "@/lib/types";
 
 export type UploadSubmission = {
   file: File;
@@ -9,6 +14,7 @@ export type UploadSubmission = {
   output_format: OutputFormat;
   llm_backend: LLMBackend;
   claude_api_key?: string;
+  claude_model_tier?: ClaudeModelTier;
   keep_references: boolean;
 };
 
@@ -26,6 +32,7 @@ export function UploadZone({
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("footnotes");
   const [llmBackend, setLlmBackend] = useState<LLMBackend>("groq");
   const [claudeKey, setClaudeKey] = useState("");
+  const [claudeModelTier, setClaudeModelTier] = useState<ClaudeModelTier>("haiku");
   const [keepRefs, setKeepRefs] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -50,6 +57,7 @@ export function UploadZone({
       output_format: outputFormat,
       llm_backend: llmBackend,
       claude_api_key: llmBackend === "claude" ? claudeKey : undefined,
+      claude_model_tier: llmBackend === "claude" ? claudeModelTier : undefined,
       keep_references: keepRefs,
     });
   };
@@ -152,26 +160,61 @@ export function UploadZone({
           ]}
         />
         {llmBackend === "claude" && (
-          <div>
-            <label
-              htmlFor="claude-key"
-              className="block text-sm font-medium text-slate-700"
-            >
-              Claude API key
-            </label>
-            <input
-              id="claude-key"
-              type="password"
-              autoComplete="off"
-              required
-              value={claudeKey}
-              onChange={(e) => setClaudeKey(e.target.value)}
-              placeholder="sk-ant-..."
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-900 focus:outline-none"
+          <div className="space-y-4">
+            <div>
+              <label
+                htmlFor="claude-key"
+                className="block text-sm font-medium text-slate-700"
+              >
+                Claude API key
+              </label>
+              <input
+                id="claude-key"
+                type="password"
+                autoComplete="off"
+                required
+                value={claudeKey}
+                onChange={(e) => setClaudeKey(e.target.value)}
+                placeholder="sk-ant-..."
+                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-900 focus:outline-none"
+              />
+              <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs text-slate-500">
+                  Held in memory on our server for this job only. Never logged, never stored.
+                </p>
+                <a
+                  href="https://console.anthropic.com/settings/keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline"
+                >
+                  Don&apos;t have one? Get a Claude API key →
+                </a>
+              </div>
+            </div>
+
+            <RadioGroup
+              label="Claude model"
+              name="claude_model_tier"
+              value={claudeModelTier}
+              onChange={(v) => setClaudeModelTier(v as ClaudeModelTier)}
+              options={[
+                {
+                  value: "haiku",
+                  label: "Haiku 4.5 — works on all Claude plans, including free",
+                },
+                {
+                  value: "sonnet",
+                  label: "Sonnet 4.6 — higher quality, requires a paid Claude account",
+                },
+              ]}
             />
-            <p className="mt-1 text-xs text-slate-500">
-              Held in memory on our server for this job only. Never logged, never stored.
-            </p>
+            {claudeModelTier === "sonnet" && (
+              <p className="text-xs text-slate-500">
+                If your account doesn&apos;t support Sonnet 4.6 we&apos;ll automatically
+                retry with Haiku 4.5 and flag any affected citations for review.
+              </p>
+            )}
           </div>
         )}
       </div>

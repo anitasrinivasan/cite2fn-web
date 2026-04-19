@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "cite2fn-api"
 version = "0.1.0"
 description = "FastAPI service for cite2fn — accepts .docx uploads and returns cited documents."
-license = "MIT"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi[standard]>=0.115",

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "cite2fn"
 version = "0.1.0"
 description = "Convert hyperlinked citations in Word documents to Bluebook or APA footnotes, endnotes, or a list of references."
-license = "MIT"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
     "python-docx>=1.1.0",

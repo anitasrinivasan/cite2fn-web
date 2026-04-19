@@ -68,6 +68,6 @@ python scripts/harness.py path/to/your.docx /tmp/out.docx
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](LICENSE).
 
 Built by [Anita Srinivasan](https://www.anitasrinivasan.com).

@@ -2,6 +2,8 @@
 
 Convert hyperlinked citations in a Word document to properly formatted Bluebook or APA footnotes, endnotes, or a reference list — in the browser, no install.
 
+**Live at [cite2fn-web.vercel.app](https://cite2fn-web.vercel.app).**
+
 Drop a `.docx` with links to your sources; cite2fn detects every citation, pulls metadata from each URL, formats it in your chosen style, lets you review any flagged items, and gives you back a cited document.
 
 ## What&rsquo;s in this repo
@@ -16,8 +18,8 @@ cite2fn-web/
 ```
 
 - **[`core/`](core/)** — pure library. Detects citations in a `.docx`, fetches URL metadata, cleans up the body text, inserts footnotes, and handles Bluebook short forms like *supra* / *Id.* No web dependencies — reusable from a CLI, notebook, or other service.
-- **[`api/`](api/)** — FastAPI service. Accepts uploads, orchestrates the pipeline (`detect → fetch → format → review → assemble`), and calls the user&rsquo;s chosen LLM backend (Claude via user-supplied key, or free fallback via Groq). Job state in SQLite; uploads auto-deleted after 24 h.
-- **[`web/`](web/)** — Next.js single-page UI. Upload form, live progress with time estimate, review table with editable citations, download. Plus static pages for how-it-works, terms, privacy.
+- **[`api/`](api/)** — FastAPI service. Accepts uploads, orchestrates the pipeline (`detect → fetch → format → review → assemble`), and calls the user&rsquo;s chosen LLM backend (Claude via user-supplied key, or free fallback via Groq). Job state in SQLite; uploads auto-deleted after 24 h. Also hosts the in-site bug-report form (with image attachments), an operational events log, and a token-gated admin stats dashboard at `/admin?token=…`.
+- **[`web/`](web/)** — Next.js single-page UI. Upload form, live progress with time estimate, review table with editable citations, download. Dark-mode toggle with system-preference default. Plus static pages for how-it-works, terms, privacy.
 - **[`scripts/harness.py`](scripts/harness.py)** — local harness that runs the real pipeline against a real `.docx` with a *mocked* LLM so body-placement bugs surface without burning API quota.
 
 ## Local development
@@ -53,7 +55,7 @@ Python 3.12 / FastAPI / python-docx / pymupdf / Anthropic SDK / OpenAI SDK (for 
 ## Tests
 
 ```bash
-# Python (core + api): 40+ unit tests
+# Python (core + api): 57 unit tests
 cd core && source .venv/bin/activate
 pytest core/tests api/tests -q
 

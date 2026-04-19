@@ -1,0 +1,52 @@
+# fly.toml — deploys the cite2fn API (FastAPI + uvicorn) to Fly.io.
+#
+# The Next.js frontend lives on Vercel; this file only covers the Python API.
+#
+# Usage (first-time, from repo root):
+#   fly launch --no-deploy --copy-config --name cite2fn-api --region iad
+#   fly volumes create cite2fn_data --size 1 --region iad
+#   fly secrets set GROQ_API_KEY=...
+#   fly secrets set ADMIN_TOKEN="$(openssl rand -hex 16)"
+#   fly secrets set CORS_ORIGINS=https://<your-vercel-domain>.vercel.app
+#   fly deploy
+#
+# Subsequent deploys:
+#   fly deploy
+#
+# Change `primary_region` below if "iad" (US East) isn't right for you.
+
+app = "cite2fn-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "api/Dockerfile"
+
+[env]
+  # Persisted via the volume mount below — see [mounts].
+  STORAGE_DIR = "/data"
+  # Everything else (GROQ_API_KEY, ADMIN_TOKEN, CORS_ORIGINS, etc.) is a
+  # secret, set via `fly secrets set`. Do not hardcode keys here.
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
+
+[[mounts]]
+  source = "cite2fn_data"
+  destination = "/data"

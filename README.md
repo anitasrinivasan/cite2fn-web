@@ -44,7 +44,7 @@ Open <http://localhost:3000>.
 
 ## Deployment
 
-Both `api/` and `web/` ship with `Dockerfile`s designed for a minimal production image. See each sub-directory&rsquo;s README for the env vars you need to set (`GROQ_API_KEY`, `STORAGE_DIR`, `CORS_ORIGINS`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_BUG_REPORT_URL`).
+Split deployment: **Next.js frontend on Vercel + Python API on Fly.io**. Step-by-step walkthrough in [DEPLOY.md](DEPLOY.md). Both `api/` and `web/` ship with `Dockerfile`s if you want to run somewhere else; env vars (`GROQ_API_KEY`, `STORAGE_DIR`, `ADMIN_TOKEN`, `CITE2FN_TEST_MODE`, `CORS_ORIGINS`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_BUG_REPORT_URL`) are documented in each sub-directory&rsquo;s README.
 
 ## Tech stack
 

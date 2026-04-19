@@ -85,11 +85,11 @@ export default function Terms() {
         7. Governing law
       </h2>
       <p>
-        <em>
-          [Placeholder — update with your jurisdiction before publishing.]
-        </em>{" "}
-        These Terms are governed by the laws of your jurisdiction of
-        residence.
+        These Terms are governed by the laws of the State of California,
+        without regard to its conflict-of-laws principles. Any dispute
+        arising out of or relating to these Terms or the Service shall be
+        resolved exclusively in the state or federal courts located in
+        California.
       </p>
 
       <h2 className="mt-8 text-xl font-semibold text-slate-900 dark:text-slate-100">

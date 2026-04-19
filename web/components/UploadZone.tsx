@@ -143,7 +143,7 @@ export function UploadZone({
           options={[
             {
               value: "groq",
-              label: "Free (Llama 3.3 70B on Groq) — slower, may be lower quality",
+              label: "Free (Llama 4 Scout on Groq) — slower, may be lower quality on edge cases",
             },
             {
               value: "claude",

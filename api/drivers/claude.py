@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
+import anthropic
 from anthropic import AsyncAnthropic
 
 from api.config import settings
 from api.drivers._prompts import SYSTEM_PROMPT_FULL, user_message
+
+_MAX_RETRIES = 4
+_BASE_BACKOFF_SEC = 2.0
 
 
 class ClaudeDriver:
@@ -20,25 +25,33 @@ class ClaudeDriver:
         chunk: list[dict[str, Any]],
         style: str,
     ) -> list:
-        from api.formatter import FormattedCitation
-
-        # Prompt caching: the system block is identical across every job, so marking
-        # it cache-eligible means the Nth job hits cache and pays ~10% of the input cost.
-        response = await self._client.messages.create(
-            model=settings.claude_model,
-            max_tokens=4096,
-            system=[
-                {
-                    "type": "text",
-                    "text": SYSTEM_PROMPT_FULL,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            messages=[{"role": "user", "content": user_message(chunk, style)}],
-        )
-
-        raw = response.content[0].text
-        return _parse_response(raw, chunk)
+        last_err: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                # Prompt caching: the system block is identical across every job,
+                # so marking it cache-eligible means the Nth job hits cache and
+                # pays ~10% of the input cost.
+                response = await self._client.messages.create(
+                    model=settings.claude_model,
+                    max_tokens=4096,
+                    system=[
+                        {
+                            "type": "text",
+                            "text": SYSTEM_PROMPT_FULL,
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                    messages=[{"role": "user", "content": user_message(chunk, style)}],
+                )
+                raw = response.content[0].text
+                return _parse_response(raw, chunk)
+            except anthropic.RateLimitError as e:
+                last_err = e
+                if attempt == _MAX_RETRIES - 1:
+                    break
+                await asyncio.sleep(_BASE_BACKOFF_SEC * (2 ** attempt))
+        assert last_err is not None
+        raise last_err
 
 
 def _parse_response(raw: str, chunk: list[dict[str, Any]]) -> list:

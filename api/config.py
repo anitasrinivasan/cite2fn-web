@@ -17,7 +17,7 @@ class Settings:
     """Service-owned Groq key for the free-fallback LLM path."""
 
     groq_model: str
-    """Groq-hosted OSS model id. Default: Llama 3.3 70B Versatile."""
+    """Groq-hosted OSS model id. Default: Llama 4 Scout."""
 
     claude_model: str
     """Anthropic model id used when the user supplies their own key."""
@@ -36,7 +36,7 @@ class Settings:
         self.db_path = self.storage_dir / "jobs.db"
 
         self.groq_api_key = os.environ.get("GROQ_API_KEY")
-        self.groq_model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self.groq_model = os.environ.get("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
         self.claude_model = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
 
         origins = os.environ.get("CORS_ORIGINS", "*")

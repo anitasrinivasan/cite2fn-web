@@ -70,6 +70,12 @@ async def run_prepare(job: jobs.Job) -> None:
             if fmt is not None:
                 cite.bluebook_text = fmt.formatted_text
                 cite.confidence = fmt.confidence  # type: ignore[assignment]
+            else:
+                # LLM skipped this citation in its response — don't let it
+                # silently drop out of the pipeline. Fill in a visible
+                # placeholder so the user can fix it during review.
+                cite.bluebook_text = f"[NEEDS MANUAL FORMATTING] {cite.display_text}"
+                cite.confidence = "needs_review"  # type: ignore[assignment]
 
         # --- Persist & transition to awaiting_review ---
         job.citations_path.write_text(

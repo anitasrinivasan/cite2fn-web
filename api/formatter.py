@@ -5,8 +5,9 @@ For the web service, the same work happens server-side through one of two driver
 
 - `claude`: used when the user provides their own Anthropic API key. Best quality,
   leverages Anthropic prompt caching on the long style-rules system prompt.
-- `groq`: free fallback using Llama 3.3 70B Versatile. OpenAI-compatible API,
-  leaner system prompt (Groq has no prompt caching so every token costs per call).
+- `groq`: free fallback using a Groq-hosted OSS model (default Llama 4 Scout).
+  OpenAI-compatible API, leaner system prompt (Groq has no prompt caching so
+  every token costs per call).
 
 Both drivers implement `format_chunk(...)` and the adapter batches citations into
 chunks of 10 so the frontend can show incremental progress.
@@ -14,7 +15,6 @@ chunks of 10 so the frontend can show incremental progress.
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
@@ -63,14 +63,16 @@ async def format_all(
         citations[i : i + CHUNK_SIZE] for i in range(0, len(citations), CHUNK_SIZE)
     ]
 
+    # Chunks run serially on purpose. Concurrent chunks on Groq's free tier
+    # collide and 429 each other out on tight TPM budgets. Claude has much
+    # higher limits but serialized is still fine for v1.
     results: list[FormattedCitation] = []
     with jobs.progress_tracker(job.id, phase="formatting", total=len(citations)) as tick:
-        tasks = [driver.format_chunk(chunk, job.style) for chunk in chunks]
-        for future in asyncio.as_completed(tasks):
-            chunk_results = await future
+        for chunk in chunks:
+            chunk_results = await driver.format_chunk(chunk, job.style)
             results.extend(chunk_results)
             tick(len(chunk_results))
 
-    # Restore input order (as_completed loses it).
+    # Preserve input order.
     by_id = {r.citation_id: r for r in results}
     return [by_id[c["citation_id"]] for c in citations if c["citation_id"] in by_id]

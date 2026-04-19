@@ -1,3 +1,6 @@
+"use client";
+
+import { useEta } from "@/lib/useEta";
 import type { Job } from "@/lib/types";
 
 const PHASE_COPY: Record<string, { title: string; subtitle: string }> = {
@@ -30,6 +33,7 @@ export function ProgressPanel({ job }: { job: Job }) {
   const done = job.progress?.done ?? 0;
   const total = job.progress?.total ?? 0;
   const showBar = total > 0 && (phase === "fetching" || phase === "formatting");
+  const eta = useEta(showBar ? phase : undefined, done, total);
 
   return (
     <div className="space-y-6 rounded-lg border border-slate-200 bg-white p-8">
@@ -46,9 +50,12 @@ export function ProgressPanel({ job }: { job: Job }) {
               style={{ width: `${Math.min(100, (done / total) * 100)}%` }}
             />
           </div>
-          <p className="font-mono text-xs text-slate-600">
-            {done} / {total}
-          </p>
+          <div className="flex items-baseline justify-between">
+            <p className="font-mono text-xs text-slate-600">
+              {done} / {total}
+            </p>
+            {eta && <p className="text-xs text-slate-500">{eta}</p>}
+          </div>
         </div>
       ) : (
         <Spinner />

@@ -48,6 +48,10 @@ class FootnoteManager:
         self.doc = doc
         self.use_endnotes = use_endnotes
         self._notes_part = None
+        # Cache the original bluebook-style text for each inserted note so the
+        # adjacent-ref merger can combine formatted text without having to
+        # reverse-engineer italic/smallcaps markers from the XML.
+        self._note_texts: dict[int, str] = {}
         self._notes_xml = None
         self._next_id = None
         self._rel_type = ENDNOTES_REL if use_endnotes else FOOTNOTES_REL
@@ -191,6 +195,7 @@ class FootnoteManager:
         # 1. Create the footnote/endnote element in the notes part
         note_elem = self._make_note_element(note_id, text)
         self._notes_xml.append(note_elem)
+        self._note_texts[note_id] = text
 
         # 2. Insert the reference in the body paragraph
         ref_run = self._make_reference_run(note_id)
@@ -240,8 +245,15 @@ class FootnoteManager:
                 p = self._make_note_paragraph(new_text)
                 note.append(p)
 
+                self._note_texts[footnote_id] = new_text
                 self._flush()
                 return
+
+    def get_note_text(self, footnote_id: int) -> str | None:
+        """Return the bluebook-style source text originally passed to
+        `insert_footnote` or `replace_footnote_content`. Returns None if
+        unknown (e.g. existing footnotes parsed from the source document)."""
+        return self._note_texts.get(footnote_id)
 
     def get_all_note_ids(self) -> list[int]:
         """Get all non-separator footnote/endnote IDs in order."""
@@ -314,6 +326,29 @@ class FootnoteManager:
         """Add text runs to a paragraph, handling *italic* and ~small caps~ markers."""
         add_formatted_runs(paragraph, text)
 
+    def _make_reference_run(self, note_id: int) -> etree._Element:
+        """Create the footnote/endnote reference run for the body text."""
+        run = etree.Element(_make_tag("r"))
+        rpr = etree.SubElement(run, _make_tag("rPr"))
+        rstyle = etree.SubElement(rpr, _make_tag("rStyle"))
+        rstyle.set(_make_tag("val"), "FootnoteReference")
+        valign = etree.SubElement(rpr, _make_tag("vertAlign"))
+        valign.set(_make_tag("val"), "superscript")
+
+        ref = etree.SubElement(run, _make_tag(self._ref_tag))
+        ref.set(_make_tag("id"), str(note_id))
+
+        return run
+
+    def _flush(self) -> None:
+        """Write the modified XML back to the part blob."""
+        self._notes_part._blob = etree.tostring(
+            self._notes_xml,
+            xml_declaration=True,
+            encoding="UTF-8",
+            standalone=True,
+        )
+
 
 def add_formatted_runs(
     paragraph: etree._Element,
@@ -372,25 +407,207 @@ def add_formatted_runs(
         t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
         t.text = part
 
-    def _make_reference_run(self, note_id: int) -> etree._Element:
-        """Create the footnote/endnote reference run for the body text."""
-        run = etree.Element(_make_tag("r"))
-        rpr = etree.SubElement(run, _make_tag("rPr"))
-        rstyle = etree.SubElement(rpr, _make_tag("rStyle"))
-        rstyle.set(_make_tag("val"), "FootnoteReference")
-        valign = etree.SubElement(rpr, _make_tag("vertAlign"))
-        valign.set(_make_tag("val"), "superscript")
 
-        ref = etree.SubElement(run, _make_tag(self._ref_tag))
-        ref.set(_make_tag("id"), str(note_id))
+# --- Post-processing: footnote-placement normalization --------------------
+#
+# After every FN ref has been inserted and every cleanup rule has run, sweep
+# each paragraph to enforce three rules that are hard to guarantee during
+# insertion alone (stray whitespace from cleanup, adjacent runs that start with
+# punctuation, or runs that start with a letter and need a space inserted).
+#
+# Order matters: move-past-punctuation runs FIRST (may change which run is
+# "next"), then strip-space-before, then ensure-space-after.
 
-        return run
+_REF_TAGS = {_make_tag("footnoteReference"), _make_tag("endnoteReference")}
+_PUNCT_CHARS = ".,;:!?"
 
-    def _flush(self) -> None:
-        """Write the modified XML back to the part blob."""
-        self._notes_part._blob = etree.tostring(
-            self._notes_xml,
-            xml_declaration=True,
-            encoding="UTF-8",
-            standalone=True,
-        )
+
+def merge_adjacent_footnote_refs(
+    paragraph: etree._Element,
+    fn_manager: "FootnoteManager",
+) -> int:
+    """Find groups of footnote refs that sit adjacent in the body and merge them.
+
+    Two refs are "adjacent" if only whitespace runs (or nothing) separate them
+    in the paragraph. For each group of 2+ refs, the first ref's footnote
+    content is replaced with a semicolon-joined concatenation of every source
+    in the group (trailing period ensured). The subsequent ref runs are
+    removed from the body so Word renders a single superscript number.
+
+    Returns the number of refs that were merged away (0 means no-op).
+    """
+    children = list(paragraph)
+    groups: list[list[etree._Element]] = []
+    current: list[etree._Element] = []
+
+    for child in children:
+        if _is_ref_run(child):
+            current.append(child)
+            continue
+        if child.tag == _make_tag("r"):
+            # Non-ref text run — only keep grouping if it's whitespace-only.
+            text = "".join(t.text or "" for t in child.findall(_make_tag("t")))
+            if text.strip() == "":
+                continue  # whitespace between refs is fine — stay in the group
+            if current:
+                groups.append(current)
+                current = []
+            continue
+        # hyperlink / ins / del / bookmark etc. — breaks the group
+        if current:
+            groups.append(current)
+            current = []
+
+    if current:
+        groups.append(current)
+
+    removed = 0
+    for group in groups:
+        if len(group) < 2:
+            continue
+        ids = [_get_ref_id(r) for r in group]
+        texts = [fn_manager.get_note_text(i) for i in ids]
+        # If we don't have cached text for any note, we can't merge that group
+        # without losing content — skip.
+        if any(t is None for t in texts):
+            continue
+        merged = "; ".join(t.rstrip(". ").rstrip() for t in texts if t)
+        if not merged.endswith("."):
+            merged += "."
+        fn_manager.replace_footnote_content(ids[0], merged)
+        for r in group[1:]:
+            parent = r.getparent()
+            if parent is not None:
+                parent.remove(r)
+        removed += len(group) - 1
+
+    return removed
+
+
+def _get_ref_id(ref_run: etree._Element) -> int | None:
+    for child in ref_run:
+        if child.tag in _REF_TAGS:
+            raw = child.get(_make_tag("id"))
+            if raw is not None:
+                try:
+                    return int(raw)
+                except ValueError:
+                    return None
+    return None
+
+
+def normalize_footnote_placement(paragraph: etree._Element) -> None:
+    """Apply placement rules to every footnote/endnote ref run in `paragraph`.
+
+    1. FN must not precede `.,;:!?` — if next run starts with punctuation,
+       move the ref after it.
+    2. No whitespace immediately before the FN — strip trailing whitespace
+       from the preceding run's last `w:t`.
+    3. FN followed by a letter needs a space — prepend one. Skips `'"),.;:`
+       and existing whitespace.
+    """
+    # Collect first; mutating the tree while iterating is error-prone.
+    ref_runs = [r for r in list(paragraph) if _is_ref_run(r)]
+    for ref_run in ref_runs:
+        _move_past_punctuation(ref_run)
+    for ref_run in ref_runs:
+        _strip_whitespace_before(ref_run)
+    for ref_run in ref_runs:
+        _ensure_space_after(ref_run)
+
+
+def _is_ref_run(elem: etree._Element) -> bool:
+    if elem.tag != _make_tag("r"):
+        return False
+    return any(child.tag in _REF_TAGS for child in elem)
+
+
+def _move_past_punctuation(ref_run: etree._Element) -> None:
+    parent = ref_run.getparent()
+    if parent is None:
+        return
+    idx = list(parent).index(ref_run)
+    if idx + 1 >= len(parent):
+        return
+    next_run = parent[idx + 1]
+    if next_run.tag != _make_tag("r"):
+        return
+    t_elems = next_run.findall(_make_tag("t"))
+    if not t_elems or not t_elems[0].text:
+        return
+    text = t_elems[0].text
+    if text[0] not in _PUNCT_CHARS:
+        return
+
+    # How many leading punct chars?
+    end = 0
+    while end < len(text) and text[end] in _PUNCT_CHARS:
+        end += 1
+    leading = text[:end]
+    remainder = text[end:]
+
+    # Leave remainder in place; insert a copy with only the leading punct before the ref_run.
+    t_elems[0].text = remainder
+    t_elems[0].set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+    punct_run = copy.deepcopy(next_run)
+    for pt in punct_run.findall(_make_tag("t")):
+        pt.text = leading
+        pt.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+    parent.insert(idx, punct_run)
+
+
+def _strip_whitespace_before(ref_run: etree._Element) -> None:
+    parent = ref_run.getparent()
+    if parent is None:
+        return
+    idx = list(parent).index(ref_run)
+    # Walk backward through any immediately-preceding whitespace-only runs,
+    # trimming or removing as needed.
+    while idx > 0:
+        prev = parent[idx - 1]
+        if prev.tag != _make_tag("r"):
+            return
+        t_elems = prev.findall(_make_tag("t"))
+        if not t_elems:
+            return
+        last = t_elems[-1]
+        if last.text is None:
+            return
+        stripped = last.text.rstrip()
+        if stripped == last.text:
+            return  # no trailing whitespace → done
+        if stripped == "":
+            # entire text was whitespace
+            parent_t = last.getparent()
+            parent_t.remove(last)
+            # If this run has no more text elements, remove the whole run and
+            # keep walking back to check the next preceding run.
+            if not prev.findall(_make_tag("t")):
+                parent.remove(prev)
+                idx -= 1
+                continue
+            return
+        last.text = stripped
+        return
+
+
+def _ensure_space_after(ref_run: etree._Element) -> None:
+    parent = ref_run.getparent()
+    if parent is None:
+        return
+    idx = list(parent).index(ref_run)
+    if idx + 1 >= len(parent):
+        return
+    next_run = parent[idx + 1]
+    if next_run.tag != _make_tag("r"):
+        return
+    t_elems = next_run.findall(_make_tag("t"))
+    if not t_elems or not t_elems[0].text:
+        return
+    first = t_elems[0].text[0]
+    # Only prepend a space if the next char is a letter or digit. Preserve
+    # possessives (`'s`), punctuation, parens, quotes, and existing spaces.
+    if not first.isalnum():
+        return
+    t_elems[0].text = " " + t_elems[0].text
+    t_elems[0].set("{http://www.w3.org/XML/1998/namespace}space", "preserve")

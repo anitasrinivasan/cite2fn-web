@@ -35,7 +35,7 @@ curl http://localhost:8000/health
 | --- | --- | --- |
 | `STORAGE_DIR` | `./data` | Job artifacts (uploads, outputs, citations JSON) and SQLite DB live here |
 | `GROQ_API_KEY` | — | Service-owned Groq key for the free fallback LLM path. If unset, users must supply their own Claude key. |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq-hosted OSS model id |
+| `GROQ_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` | Groq-hosted OSS model id |
 | `CLAUDE_MODEL` | `claude-sonnet-4-6` | Anthropic model id when the user supplies their own key |
 | `CORS_ORIGINS` | `*` | Comma-separated origins allowed to call the API |
 | `MAX_UPLOAD_MB` | `25` | Upload size cap |

@@ -64,12 +64,30 @@ export function ReviewTable({
                   : "border-slate-200 bg-white"
               }`}
             >
-              <div className="mb-2 flex items-center justify-between gap-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Original: <span className="font-mono normal-case text-slate-700">{c.display_text}</span>
-                </p>
+              <div className="mb-2 flex items-start justify-between gap-4">
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Original:{" "}
+                    <span className="font-mono normal-case text-slate-700">
+                      {c.display_text}
+                    </span>
+                  </p>
+                  {c.url && (
+                    <p className="text-xs text-slate-500">
+                      Source:{" "}
+                      <a
+                        href={c.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-slate-700 underline-offset-2 hover:text-slate-900 hover:underline break-all"
+                      >
+                        {c.url}
+                      </a>
+                    </p>
+                  )}
+                </div>
                 {flagged && (
-                  <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
+                  <span className="shrink-0 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
                     Needs review
                   </span>
                 )}

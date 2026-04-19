@@ -11,13 +11,18 @@ Takes a document and formatted citations, produces the final output with:
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 from pathlib import Path
 from docx import Document
 
 from cite2fn.models import Citation, citations_from_json
-from cite2fn.footnotes import FootnoteManager
+from cite2fn.footnotes import (
+    FootnoteManager,
+    merge_adjacent_footnote_refs,
+    normalize_footnote_placement,
+)
 from cite2fn.cleanup import classify_cleanup_rule, apply_cleanup
 from cite2fn.comments import (
     add_no_source_comment,
@@ -141,38 +146,83 @@ def assemble_document(
                 report["issues"].append(f"Citation {entry['citation_id']}: {w}")
 
     # --- Step 3: Insert footnotes and clean text ---
-    # Process in reverse order within each paragraph to avoid index shifts
+    # Two-pass within each paragraph: insert-all-then-cleanup-all. Interleaving
+    # cleanups with insertions (the old behavior) broke position lookup because
+    # earlier cleanups deleted the text a later citation's search relied on.
     paragraphs_cites: dict[int, list[Citation]] = {}
     for cite in new_cites:
         paragraphs_cites.setdefault(cite.paragraph_index, []).append(cite)
 
     for para_idx in sorted(paragraphs_cites.keys(), reverse=True):
         para_cites = paragraphs_cites[para_idx]
-        # Process citations within this paragraph in reverse order
+        para = doc.paragraphs[para_idx]
+        para_elem = para._element
+        para_text = para.text
+
+        def _first_occurrence(c: Citation) -> int:
+            if c.display_text:
+                idx = para_text.find(c.display_text)
+                if idx >= 0:
+                    return idx
+            if c.year:
+                idx = para_text.find(c.year)
+                if idx >= 0:
+                    return idx
+            return 10**9
+
+        para_cites.sort(key=_first_occurrence)
+
+        # Capture run + hyperlink lists once and hold them through the loop so
+        # lxml wrappers stay alive — their id() is only stable while they're
+        # referenced. Recomputing inside _find_insert_position would invalidate
+        # every claimed id between calls.
+        top_runs = [r for r in para_elem if r.tag == f"{{{W}}}r"]
+        all_runs = para_elem.findall(f".//{{{W}}}r")
+        hyperlinks = para_elem.findall(f".//{{{W}}}hyperlink")
+
+        claimed_ids: set[int] = set()
+        classified: list[tuple[Citation, int]] = []
         for cite in reversed(para_cites):
             if cite.id not in cite_to_text:
                 continue
-
             bluebook_text = cite_to_text[cite.id]
-            para = doc.paragraphs[para_idx]
-            para_elem = para._element
-            para_text = para.text
 
-            # Classify cleanup rule
             rule = classify_cleanup_rule(cite, para_text)
             cite.cleanup_rule = rule
+            classified.append((cite, rule))
 
-            # Find the element to insert the footnote after
-            insert_after = _find_insert_position(para_elem, cite)
-
-            # Insert the footnote
-            note_id = fn_manager.insert_footnote(
-                bluebook_text, para_elem, insert_after
+            insert_after = _find_insert_position(
+                cite, claimed_ids, top_runs, all_runs, hyperlinks
             )
+            if insert_after is None:
+                report["issues"].append(
+                    f"Citation {cite.id}: could not anchor footnote — appended at paragraph tail"
+                )
+            fn_manager.insert_footnote(bluebook_text, para_elem, insert_after)
             report["footnotes_inserted"] += 1
 
-            # Apply text cleanup
+        for cite, rule in classified:
             apply_cleanup(doc, cite, rule)
+
+    # --- Step 3b: Merge adjacent footnote refs ---
+    # Per Bluebook convention, multiple authorities cited at the same point
+    # get a single footnote with sources joined by "; ". This also masks
+    # position-lookup collisions where our code placed multiple refs next to
+    # each other when they should have been spread across the paragraph.
+    merged_total = 0
+    for para in doc.paragraphs:
+        merged_total += merge_adjacent_footnote_refs(para._element, fn_manager)
+    if merged_total:
+        report["footnotes_merged"] = merged_total
+
+    # --- Step 3c: Normalize footnote placement across all paragraphs ---
+    # Post-processing pass that fixes three defects insertion alone can't
+    # guarantee: stray whitespace before a ref (from cleanup removing a
+    # parenthetical year), FN before sentence-level punctuation, and FN
+    # immediately followed by a letter without a space. Idempotent — no-op
+    # on paragraphs already in correct shape.
+    for para in doc.paragraphs:
+        normalize_footnote_placement(para._element)
 
     # --- Step 4: Add comments for issues ---
     for cite in citations:
@@ -274,31 +324,120 @@ def _validate_bluebook_markers(bluebook_text: str) -> list[str]:
     return warnings
 
 
+def _split_text_element_after(run, t_elem, search_text):
+    """Split `run` so that its text up to and including `search_text` stays in
+    `run` (which becomes the "prefix"), and everything after `search_text`
+    moves into a new "suffix" run inserted immediately after `run` in the
+    paragraph.
+
+    Returns the new suffix run, or None if the split is a no-op (search_text
+    is already at the very end of the run's text).
+
+    Assumes `search_text` appears in `t_elem.text`. The run is expected to have
+    a single meaningful `w:t` (typical for body runs); for multi-`w:t` runs
+    only the first split point is handled.
+    """
+    text = t_elem.text or ""
+    idx = text.find(search_text)
+    if idx < 0:
+        return None
+    split_pos = idx + len(search_text)
+    if split_pos >= len(text):
+        # Already at end — no suffix to carve out
+        return None
+
+    prefix_text = text[:split_pos]
+    suffix_text = text[split_pos:]
+    t_elem.text = prefix_text
+    t_elem.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+
+    suffix_run = copy.deepcopy(run)
+    # Strip all <w:t> content from the copy, then put the suffix into the first one
+    suffix_t_elems = suffix_run.findall(f"{{{W}}}t")
+    if not suffix_t_elems:
+        return None
+    for st in suffix_t_elems:
+        st.text = ""
+    suffix_t_elems[0].text = suffix_text
+    suffix_t_elems[0].set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+
+    parent = run.getparent()
+    parent.insert(list(parent).index(run) + 1, suffix_run)
+    return suffix_run
+
+
 def _find_insert_position(
-    para_elem, cite: Citation
-) -> None:
+    cite: Citation,
+    claimed_ids: set[int],
+    top_runs: list,
+    all_runs: list,
+    hyperlinks: list,
+):
     """Find the XML element after which to insert the footnote reference.
 
-    For hyperlinked citations: insert after the hyperlink element.
-    For text citations: insert after the last run containing the citation text.
-    Returns None to append to end of paragraph.
+    For hyperlinked citations: insert after the matching hyperlink element.
+    For text citations: insert after a run containing the search text, preferring
+    runs at the paragraph top level (runs inside <w:hyperlink> can be removed
+    by a later cleanup for a different citation, which would drag our ref with
+    them). `claimed_ids` tracks `id()` of elements already chosen for earlier
+    citations in the same paragraph so two FNs don't collide on one anchor.
+
+    The element lists must be captured ONCE in the caller and stay alive across
+    all calls for a given paragraph — lxml reuses Python wrappers only while
+    they're referenced, so recomputing inside this function would invalidate
+    every id we've previously stored.
+
+    Returns None if nothing can be anchored — caller appends to the tail.
     """
-    # For hyperlinks: find the matching hyperlink element
     if cite.type in ("hyperlink_external", "hyperlink_internal"):
-        hyperlinks = para_elem.findall(f".//{{{W}}}hyperlink")
         for hl in hyperlinks:
+            if id(hl) in claimed_ids:
+                continue
             texts = [t.text for t in hl.findall(f".//{{{W}}}t") if t.text]
             hl_text = "".join(texts)
             if cite.display_text.strip("()[].,; ") in hl_text or hl_text in cite.display_text:
+                claimed_ids.add(id(hl))
                 return hl
 
-    # For text citations: find the run containing the year or author
-    search_text = cite.year or cite.author_name or cite.display_text
-    if search_text:
-        runs = para_elem.findall(f".//{{{W}}}r")
-        for run in reversed(runs):
+    # Search order: display_text first (most specific — lets us split cleanly
+    # at the end of the full citation), then year, then author_name. Always
+    # split on match so two citations whose anchor text lies within the same
+    # big run still get distinct positions. claimed_ids is not used here —
+    # the split guarantees distinct anchors even when two citations search
+    # overlapping text.
+    for search_text in (cite.display_text, cite.year, cite.author_name):
+        if not search_text:
+            continue
+        for run in reversed(top_runs):
+            for t in run.findall(f"{{{W}}}t"):
+                if not (t.text and search_text in t.text):
+                    continue
+                suffix = _split_text_element_after(run, t, search_text)
+                if suffix is not None:
+                    top_runs.append(suffix)
+                    all_runs.append(suffix)
+                claimed_ids.add(id(run))
+                return run
+        # Fallback: text lives inside a hyperlink. Return the CONTAINING
+        # hyperlink as the anchor so the FN is inserted as a paragraph-level
+        # sibling of the hyperlink — not as a child of it. This guarantees
+        # the FN survives even if a *different* citation's rule 2/3 cleanup
+        # removes that hyperlink. We deliberately do NOT add the hyperlink to
+        # claimed_ids: multiple citations may legitimately anchor there, and
+        # the adjacent-ref merger will consolidate them afterwards.
+        for run in reversed(all_runs):
+            if run in top_runs:
+                continue
             for t in run.findall(f"{{{W}}}t"):
                 if t.text and search_text in t.text:
-                    return run
+                    anc = run.getparent()
+                    while anc is not None and anc.tag != f"{{{W}}}hyperlink":
+                        if anc.tag == f"{{{W}}}p":
+                            anc = None
+                            break
+                        anc = anc.getparent()
+                    if anc is not None and anc.tag == f"{{{W}}}hyperlink":
+                        return anc
+                    break  # non-hyperlink ancestor — skip this text
 
     return None
